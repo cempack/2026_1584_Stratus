@@ -39,6 +39,17 @@ ADSBDB_CALLSIGN_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
 LIVEATC_SEARCH_URL = "https://www.liveatc.net/search/"
 LIVEATC_STREAM_BASE_URL = "https://d.liveatc.net"
 LIVEATC_CACHE_TTL_SECONDS = 6 * 60 * 60
+LIVEATC_FEED_INDEX_URL = "https://www.liveatc.net/feedindex.php?icao=ALL"
+LIVEATC_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.liveatc.net/",
+    "Cache-Control": "no-cache",
+}
 OURAIRPORTS_AIRPORTS_URL = "https://ourairports.com/data/airports.csv"
 OURAIRPORTS_CACHE_TTL_SECONDS = 24 * 60 * 60
 
@@ -307,14 +318,70 @@ def parse_liveatc_airports_from_search_page(page_text, airports_by_icao=None):
     return sorted(airports.values(), key=lambda item: item["icao"])
 
 
-def parse_liveatc_stream_id(page_text):
-    match = re.search(r"/archive\.php\?m=([a-zA-Z0-9_]+)", page_text)
+def parse_liveatc_airports_from_feed_index(page_text, airports_by_icao=None):
+    airports = {}
+    airports_by_icao = airports_by_icao or {}
+    for _, raw_icao, raw_label in re.findall(
+        r'<a[^>]*href="([^"]*search/\?icao=([A-Za-z0-9]{4})[^"]*)"[^>]*>(.*?)</a>',
+        page_text,
+        flags=re.IGNORECASE | re.DOTALL,
+    ):
+        icao = re.sub(r"[^A-Z0-9]", "", raw_icao.upper())
+        if len(icao) != 4:
+            continue
+        pretty_label = html.unescape(re.sub(r"<[^>]+>", "", raw_label or "")).strip()
+        airport_meta = airports_by_icao.get(icao) or {}
+        lat = numeric_or_none(airport_meta.get("lat"))
+        lng = numeric_or_none(airport_meta.get("lng"))
+        airports[icao] = {
+            "icao": icao,
+            "label": pretty_label or icao,
+            "name": airport_meta.get("name") or pretty_label or icao,
+            "city": airport_meta.get("city") or "",
+            "country": airport_meta.get("country") or "",
+            "lat": lat,
+            "lng": lng,
+            "page_url": f"{LIVEATC_SEARCH_URL}?icao={quote(icao)}",
+        }
+    return sorted(airports.values(), key=lambda item: item["icao"])
+
+
+def parse_liveatc_stream_details(page_text):
+    direct_stream = re.search(
+        r"https?://d\.liveatc\.net/([a-zA-Z0-9._-]+)", page_text, flags=re.IGNORECASE
+    )
+    if direct_stream:
+        feed_id = direct_stream.group(1)
+        return {
+            "feed_id": feed_id,
+            "stream_url": f"{LIVEATC_STREAM_BASE_URL}/{feed_id}",
+        }
+    match = re.search(r"/archive\.php\?m=([a-zA-Z0-9._-]+)", page_text)
     if match:
-        return match.group(1)
-    match = re.search(r"/listen\.php\?m=([a-zA-Z0-9_]+)", page_text)
+        feed_id = match.group(1)
+        return {
+            "feed_id": feed_id,
+            "stream_url": f"{LIVEATC_STREAM_BASE_URL}/{feed_id}",
+        }
+    match = re.search(r"/listen\.php\?m=([a-zA-Z0-9._-]+)", page_text)
     if match:
-        return match.group(1)
+        feed_id = match.group(1)
+        return {
+            "feed_id": feed_id,
+            "stream_url": f"{LIVEATC_STREAM_BASE_URL}/{feed_id}",
+        }
+    mount = re.search(r"mount=([a-zA-Z0-9._-]+)", page_text)
+    if mount:
+        feed_id = mount.group(1)
+        return {
+            "feed_id": feed_id,
+            "stream_url": f"{LIVEATC_STREAM_BASE_URL}/{feed_id}",
+        }
     return None
+
+
+def get_liveatc(url, timeout=(8, 15)):
+    return http.get(url, headers=LIVEATC_BROWSER_HEADERS, timeout=timeout)
 
 
 def load_ourairports_metadata(force_refresh=False):
@@ -367,9 +434,15 @@ def get_liveatc_airports(force_refresh=False):
         airports_by_icao = load_ourairports_metadata(force_refresh=force_refresh)
     except Exception:
         airports_by_icao = {}
-    response = http.get(LIVEATC_SEARCH_URL, timeout=(8, 15))
+    response = get_liveatc(LIVEATC_SEARCH_URL, timeout=(8, 15))
     response.raise_for_status()
     airports = parse_liveatc_airports_from_search_page(response.text, airports_by_icao)
+    if not airports:
+        fallback_response = get_liveatc(LIVEATC_FEED_INDEX_URL, timeout=(8, 20))
+        fallback_response.raise_for_status()
+        airports = parse_liveatc_airports_from_feed_index(
+            fallback_response.text, airports_by_icao
+        )
     if not airports:
         raise ValueError("No LiveATC airports detected")
     with liveatc_lock:
@@ -1943,18 +2016,18 @@ def api_liveatc_stream():
         return jsonify({"error": "Invalid ICAO code"}), 400
     page_url = f"{LIVEATC_SEARCH_URL}?icao={quote(icao)}"
     try:
-        response = http.get(page_url, timeout=(8, 15))
+        response = get_liveatc(page_url, timeout=(8, 15))
         response.raise_for_status()
     except requests.RequestException as exc:
         return jsonify({"error": f"LiveATC indisponible: {exc}"}), 502
-    feed_id = parse_liveatc_stream_id(response.text)
-    if not feed_id:
+    stream = parse_liveatc_stream_details(response.text)
+    if not stream:
         return jsonify({"error": f"Aucun flux actif trouvé pour {icao}", "icao": icao}), 404
     return json_response(
         {
             "icao": icao,
-            "feed_id": feed_id,
-            "stream_url": f"{LIVEATC_STREAM_BASE_URL}/{feed_id}",
+            "feed_id": stream.get("feed_id") or "",
+            "stream_url": stream.get("stream_url") or "",
             "page_url": page_url,
         }
     )
