@@ -1171,9 +1171,26 @@
         top: var(--frame-gap);
         right: var(--frame-gap);
         z-index: 13;
-        width: min(320px, calc(100vw - (var(--frame-gap) * 2)));
+        width: min(352px, calc(100vw - (var(--frame-gap) * 2)));
         border-radius: 24px;
         padding: 14px 14px 12px;
+        background:
+          radial-gradient(
+            circle at top right,
+            rgba(255, 188, 94, 0.22),
+            transparent 42%
+          ),
+          radial-gradient(
+            circle at top left,
+            rgba(109, 235, 255, 0.22),
+            transparent 38%
+          ),
+          var(--panel-strong);
+        border: 1px solid rgba(255, 188, 94, 0.22);
+        box-shadow:
+          0 22px 46px rgba(0, 0, 0, 0.35),
+          0 0 28px rgba(255, 188, 94, 0.12),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
       }
 
       body.popup-open #radio-widget {
@@ -1182,8 +1199,21 @@
         transform: translateX(24px) scale(0.97);
       }
 
+      #radio-widget.radio-disabled {
+        border-color: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 20px 36px rgba(0, 0, 0, 0.3);
+        filter: saturate(0.74);
+      }
+
       .radio-head {
         display: grid;
+        gap: 9px;
+      }
+
+      .radio-topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 10px;
       }
 
@@ -1202,9 +1232,36 @@
       #radio-airport-name {
         margin-top: 4px;
         color: rgba(244, 247, 251, 0.86);
-        font-size: 0.74rem;
+        font-size: 0.75rem;
         font-weight: 700;
         line-height: 1.35;
+      }
+
+      .radio-live-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 183, 94, 0.4);
+        background: rgba(255, 183, 94, 0.14);
+        color: rgba(255, 217, 162, 0.96);
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+      }
+
+      .radio-live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ffad5d;
+        box-shadow: 0 0 0 rgba(255, 173, 93, 0.68);
+      }
+
+      #radio-widget.radio-playing .radio-live-dot {
+        animation: radioPulse 1.1s ease infinite;
       }
 
       .radio-open {
@@ -1215,7 +1272,7 @@
         width: 100%;
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 12px;
-        background: rgba(159, 227, 218, 0.08);
+        background: rgba(159, 227, 218, 0.12);
         color: rgba(244, 247, 251, 0.95);
         min-height: 38px;
         padding: 0 12px 0 14px;
@@ -1263,16 +1320,89 @@
         cursor: pointer;
       }
 
+      .radio-control-btn:disabled,
+      .radio-open:disabled {
+        opacity: 0.46;
+        cursor: not-allowed;
+      }
+
       #radio-play {
-        background: rgba(121, 240, 223, 0.14);
-        border-color: rgba(121, 240, 223, 0.28);
+        background: linear-gradient(
+          140deg,
+          rgba(255, 183, 94, 0.26),
+          rgba(121, 240, 223, 0.2)
+        );
+        border-color: rgba(255, 183, 94, 0.42);
       }
 
       #radio-status {
         margin-top: 9px;
-        color: var(--muted);
-        font-size: 0.68rem;
+        color: rgba(230, 238, 250, 0.92);
+        font-size: 0.7rem;
         font-weight: 700;
+      }
+
+      .radio-signal {
+        margin-top: 10px;
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+        height: 16px;
+      }
+
+      .radio-signal span {
+        display: block;
+        width: 4px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(123, 224, 255, 0.35);
+        transition: height 180ms ease;
+      }
+
+      #radio-widget.radio-playing .radio-signal span:nth-child(1) {
+        animation: signalBeat 700ms ease-in-out infinite;
+      }
+
+      #radio-widget.radio-playing .radio-signal span:nth-child(2) {
+        animation: signalBeat 820ms ease-in-out infinite 60ms;
+      }
+
+      #radio-widget.radio-playing .radio-signal span:nth-child(3) {
+        animation: signalBeat 660ms ease-in-out infinite 120ms;
+      }
+
+      #radio-widget.radio-playing .radio-signal span:nth-child(4) {
+        animation: signalBeat 780ms ease-in-out infinite 160ms;
+      }
+
+      .radio-airport-empty {
+        border: 1px dashed rgba(255, 255, 255, 0.18);
+        border-radius: 12px;
+        color: var(--muted);
+        padding: 14px 12px;
+        font-size: 0.74rem;
+        font-weight: 700;
+      }
+
+      @keyframes signalBeat {
+        0%,
+        100% {
+          height: 5px;
+          background: rgba(123, 224, 255, 0.35);
+        }
+        50% {
+          height: 15px;
+          background: rgba(255, 183, 94, 0.9);
+        }
+      }
+
+      @keyframes radioPulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(255, 173, 93, 0.64);
+        }
+        100% {
+          box-shadow: 0 0 0 14px rgba(255, 173, 93, 0);
+        }
       }
 
       #radio-airport-modal {
@@ -2414,8 +2544,14 @@
 
     <aside id="radio-widget" class="glass">
       <div class="radio-head">
-        <div>
+        <div class="radio-topline">
           <div class="radio-eyebrow">Live ATC</div>
+          <div class="radio-live-badge">
+            <span class="radio-live-dot" aria-hidden="true"></span>
+            <span>On Air</span>
+          </div>
+        </div>
+        <div>
           <div id="radio-airport-code">—</div>
           <div id="radio-airport-name">Sélectionnez un aéroport LiveATC</div>
         </div>
@@ -2440,6 +2576,9 @@
         <button id="radio-next" class="radio-control-btn" type="button">Suiv.</button>
       </div>
       <div id="radio-status" aria-live="polite">Pause</div>
+      <div class="radio-signal" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
       <audio id="radio-audio" preload="none" crossorigin="anonymous"></audio>
     </aside>
 

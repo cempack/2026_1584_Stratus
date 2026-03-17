@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import atexit
 import copy
+import csv
 import gzip
 import html
 import json
@@ -38,6 +39,8 @@ ADSBDB_CALLSIGN_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
 LIVEATC_SEARCH_URL = "https://www.liveatc.net/search/"
 LIVEATC_STREAM_BASE_URL = "https://d.liveatc.net"
 LIVEATC_CACHE_TTL_SECONDS = 6 * 60 * 60
+OURAIRPORTS_AIRPORTS_URL = "https://ourairports.com/data/airports.csv"
+OURAIRPORTS_CACHE_TTL_SECONDS = 24 * 60 * 60
 
 DATA_PROVIDER = "opensky"
 DATA_SOURCE_LABEL = "OpenSky Network"
@@ -200,6 +203,8 @@ source_health = {
 photo_cache = {}
 liveatc_cache = {"airports": [], "fetched_at": 0.0}
 liveatc_lock = threading.Lock()
+ourairports_cache = {"airports_by_icao": {}, "fetched_at": 0.0}
+ourairports_lock = threading.Lock()
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
@@ -266,8 +271,9 @@ def normalize_callsign(value):
     return normalized or None
 
 
-def parse_liveatc_airports_from_search_page(page_text):
+def parse_liveatc_airports_from_search_page(page_text, airports_by_icao=None):
     airports = {}
+    airports_by_icao = airports_by_icao or {}
     for value, label in re.findall(
         r'<option[^>]*value="([^"]+)"[^>]*>(.*?)</option>',
         page_text,
@@ -284,12 +290,17 @@ def parse_liveatc_airports_from_search_page(page_text):
             left, right = pretty_label.split(" - ", 1)
             if left.strip().upper() == icao:
                 name = right.strip() or pretty_label
+        airport_meta = airports_by_icao.get(icao) or {}
+        lat = numeric_or_none(airport_meta.get("lat"))
+        lng = numeric_or_none(airport_meta.get("lng"))
         airport = {
             "icao": icao,
             "label": pretty_label,
-            "name": name,
-            "city": "",
-            "country": "",
+            "name": airport_meta.get("name") or name,
+            "city": airport_meta.get("city") or "",
+            "country": airport_meta.get("country") or "",
+            "lat": lat,
+            "lng": lng,
             "page_url": f"{LIVEATC_SEARCH_URL}?icao={quote(icao)}",
         }
         airports[icao] = airport
@@ -306,6 +317,44 @@ def parse_liveatc_stream_id(page_text):
     return None
 
 
+def load_ourairports_metadata(force_refresh=False):
+    now = time.time()
+    with ourairports_lock:
+        cached_map = dict(ourairports_cache.get("airports_by_icao") or {})
+        cached_at = float(ourairports_cache.get("fetched_at") or 0.0)
+    if (
+        cached_map
+        and not force_refresh
+        and now - cached_at < OURAIRPORTS_CACHE_TTL_SECONDS
+    ):
+        return cached_map
+
+    response = http.get(OURAIRPORTS_AIRPORTS_URL, timeout=(8, 25))
+    response.raise_for_status()
+    reader = csv.DictReader(response.text.splitlines())
+    airports_by_icao = {}
+    for row in reader:
+        icao = re.sub(r"[^A-Z0-9]", "", (row.get("ident") or "").upper())
+        if len(icao) != 4:
+            continue
+        try:
+            lat = float(row.get("latitude_deg"))
+            lng = float(row.get("longitude_deg"))
+        except (TypeError, ValueError):
+            continue
+        airports_by_icao[icao] = {
+            "lat": lat,
+            "lng": lng,
+            "name": (row.get("name") or "").strip(),
+            "city": (row.get("municipality") or "").strip(),
+            "country": (row.get("iso_country") or "").strip(),
+        }
+    with ourairports_lock:
+        ourairports_cache["airports_by_icao"] = airports_by_icao
+        ourairports_cache["fetched_at"] = now
+    return airports_by_icao
+
+
 def get_liveatc_airports(force_refresh=False):
     now = time.time()
     with liveatc_lock:
@@ -313,9 +362,14 @@ def get_liveatc_airports(force_refresh=False):
         cached_at = float(liveatc_cache.get("fetched_at") or 0.0)
     if cached_airports and not force_refresh and now - cached_at < LIVEATC_CACHE_TTL_SECONDS:
         return cached_airports, True
+    airports_by_icao = {}
+    try:
+        airports_by_icao = load_ourairports_metadata(force_refresh=force_refresh)
+    except Exception:
+        airports_by_icao = {}
     response = http.get(LIVEATC_SEARCH_URL, timeout=(8, 15))
     response.raise_for_status()
-    airports = parse_liveatc_airports_from_search_page(response.text)
+    airports = parse_liveatc_airports_from_search_page(response.text, airports_by_icao)
     if not airports:
         raise ValueError("No LiveATC airports detected")
     with liveatc_lock:
