@@ -1176,10 +1176,14 @@
         padding: 14px 14px 12px;
       }
 
+      body.popup-open #radio-widget {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(24px) scale(0.97);
+      }
+
       .radio-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        display: grid;
         gap: 10px;
       }
 
@@ -1204,17 +1208,39 @@
       }
 
       .radio-open {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        background: rgba(159, 227, 218, 0.08);
         color: rgba(244, 247, 251, 0.95);
-        min-height: 34px;
-        padding: 0 12px;
-        font-size: 0.66rem;
+        min-height: 38px;
+        padding: 0 12px 0 14px;
+        font-size: 0.68rem;
         font-weight: 800;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         cursor: pointer;
+      }
+
+      .radio-open:hover {
+        border-color: rgba(159, 227, 218, 0.34);
+        background: rgba(159, 227, 218, 0.15);
+      }
+
+      .radio-open__caret {
+        font-size: 0.86rem;
+        color: var(--teal);
+      }
+
+      .radio-open-hint {
+        margin-top: -2px;
+        color: var(--muted);
+        font-size: 0.66rem;
+        font-weight: 700;
       }
 
       .radio-controls {
@@ -1225,15 +1251,21 @@
       }
 
       .radio-control-btn {
-        min-height: 36px;
+        min-height: 38px;
         border: 1px solid rgba(255, 255, 255, 0.09);
         border-radius: 12px;
         background: rgba(255, 255, 255, 0.05);
         color: rgba(244, 247, 251, 0.94);
-        font-size: 0.75rem;
+        font-size: 0.67rem;
         font-weight: 800;
         letter-spacing: 0.08em;
+        text-transform: uppercase;
         cursor: pointer;
+      }
+
+      #radio-play {
+        background: rgba(121, 240, 223, 0.14);
+        border-color: rgba(121, 240, 223, 0.28);
       }
 
       #radio-status {
@@ -2387,14 +2419,25 @@
           <div id="radio-airport-code">—</div>
           <div id="radio-airport-name">Sélectionnez un aéroport LiveATC</div>
         </div>
-        <button id="radio-open-airports" class="radio-open" type="button">
-          Aéroports
+        <button
+          id="radio-open-airports"
+          class="radio-open"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="radio-airport-modal"
+          aria-expanded="false"
+        >
+          <span>Liste des aéroports</span>
+          <span class="radio-open__caret" aria-hidden="true">▾</span>
         </button>
+        <div class="radio-open-hint">Ouvre le menu de recherche LiveATC</div>
       </div>
       <div class="radio-controls">
-        <button id="radio-prev" class="radio-control-btn" type="button">⏮</button>
-        <button id="radio-play" class="radio-control-btn" type="button">▶</button>
-        <button id="radio-next" class="radio-control-btn" type="button">⏭</button>
+        <button id="radio-prev" class="radio-control-btn" type="button">Préc.</button>
+        <button id="radio-play" class="radio-control-btn" type="button">
+          Lecture
+        </button>
+        <button id="radio-next" class="radio-control-btn" type="button">Suiv.</button>
       </div>
       <div id="radio-status" aria-live="polite">Pause</div>
       <audio id="radio-audio" preload="none" crossorigin="anonymous"></audio>

@@ -3000,6 +3000,7 @@ async function main() {
       if ($("radio-airport-modal")?.classList.contains("visible")) {
         $("radio-airport-modal")?.classList.remove("visible");
         $("radio-airport-modal")?.setAttribute("aria-hidden", "true");
+        $("radio-open-airports")?.setAttribute("aria-expanded", "false");
         return;
       }
       clearSearch();
@@ -3047,6 +3048,7 @@ async function main() {
   $("radio-open-airports")?.addEventListener("click", () => {
     $("radio-airport-modal")?.classList.add("visible");
     $("radio-airport-modal")?.setAttribute("aria-hidden", "false");
+    $("radio-open-airports")?.setAttribute("aria-expanded", "true");
     renderRadioAirportResults($("radio-airport-search")?.value || "");
     $("radio-airport-search")?.focus();
   });
@@ -3054,12 +3056,14 @@ async function main() {
   $("close-radio-airports")?.addEventListener("click", () => {
     $("radio-airport-modal")?.classList.remove("visible");
     $("radio-airport-modal")?.setAttribute("aria-hidden", "true");
+    $("radio-open-airports")?.setAttribute("aria-expanded", "false");
   });
 
   $("radio-airport-modal")?.addEventListener("click", (event) => {
     if (event.target === $("radio-airport-modal")) {
       $("radio-airport-modal")?.classList.remove("visible");
       $("radio-airport-modal")?.setAttribute("aria-hidden", "true");
+      $("radio-open-airports")?.setAttribute("aria-expanded", "false");
     }
   });
 
@@ -3079,6 +3083,7 @@ async function main() {
     setRadioFeedByIndex(index, { autoplay: true });
     $("radio-airport-modal")?.classList.remove("visible");
     $("radio-airport-modal")?.setAttribute("aria-hidden", "true");
+    $("radio-open-airports")?.setAttribute("aria-expanded", "false");
   });
 
   $("radio-prev")?.addEventListener("click", () => {
@@ -3109,12 +3114,14 @@ async function main() {
   });
 
   $("radio-audio")?.addEventListener("play", () => {
-    $("radio-play")?.textContent = "⏸";
+    const playButton = $("radio-play");
+    if (playButton) playButton.textContent = "Pause";
     setRadioStatus(`Lecture ${radioFeed?.icao || ""} · liveatc.net`);
   });
 
   $("radio-audio")?.addEventListener("pause", () => {
-    $("radio-play")?.textContent = "▶";
+    const playButton = $("radio-play");
+    if (playButton) playButton.textContent = "Lecture";
     setRadioStatus("Pause");
   });
 
