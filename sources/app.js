@@ -2453,7 +2453,7 @@ async function main() {
   globeGroup.add(zoneLoadingMesh);
   let renderSamplingTick = 0;
   let radioFeedIndex = 0;
-  let radioFeed = LIVE_ATC_FEEDS[0] || null;
+  let radioFeed = LIVE_ATC_FEEDS.length > 0 ? LIVE_ATC_FEEDS[0] : null;
 
   function syncRadioAirportPing() {
     if (!radioFeed) {
@@ -3083,19 +3083,21 @@ async function main() {
 
   $("radio-prev")?.addEventListener("click", () => {
     const audio = $("radio-audio");
-    setRadioFeedByIndex(radioFeedIndex - 1, { autoplay: !audio?.paused });
+    setRadioFeedByIndex(radioFeedIndex - 1, { autoplay: !!audio && !audio.paused });
   });
 
   $("radio-next")?.addEventListener("click", () => {
     const audio = $("radio-audio");
-    setRadioFeedByIndex(radioFeedIndex + 1, { autoplay: !audio?.paused });
+    setRadioFeedByIndex(radioFeedIndex + 1, { autoplay: !!audio && !audio.paused });
   });
 
   $("radio-play")?.addEventListener("click", async () => {
     const audio = $("radio-audio");
     if (!audio) return;
     if (audio.paused) {
-      if (!audio.src) await setRadioFeedByIndex(radioFeedIndex, { autoplay: false });
+      if (!audio.src || audio.src === "") {
+        await setRadioFeedByIndex(radioFeedIndex, { autoplay: false });
+      }
       try {
         await audio.play();
       } catch (error) {
@@ -3107,12 +3109,12 @@ async function main() {
   });
 
   $("radio-audio")?.addEventListener("play", () => {
-    $("radio-play").textContent = "⏸";
+    $("radio-play")?.textContent = "⏸";
     setRadioStatus(`Lecture ${radioFeed?.icao || ""} · liveatc.net`);
   });
 
   $("radio-audio")?.addEventListener("pause", () => {
-    $("radio-play").textContent = "▶";
+    $("radio-play")?.textContent = "▶";
     setRadioStatus("Pause");
   });
 

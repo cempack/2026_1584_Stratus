@@ -1766,6 +1766,12 @@
         line-height: 1.5;
       }
 
+      .modal-sub a {
+        color: var(--teal);
+        text-decoration: none;
+        font-weight: 800;
+      }
+
       .settings-form {
         display: grid;
         gap: 14px;
@@ -2597,7 +2603,13 @@
           <div>
             <div class="modal-title">Flux LiveATC</div>
             <div class="modal-sub">
-              Recherchez un aéroport et écoutez le direct via liveatc.net
+              Recherchez un aéroport et écoutez le direct via
+              <a
+                href="https://www.liveatc.net/"
+                target="_blank"
+                rel="noreferrer noopener"
+                >liveatc.net</a
+              >
             </div>
           </div>
           <button
@@ -2613,7 +2625,7 @@
           id="radio-airport-search"
           class="radio-search"
           type="text"
-          placeholder="ICAO, nom ou ville (ex: LFPG, JFK)"
+          placeholder="ICAO, nom ou ville (ex. : LFPG, JFK)"
           autocomplete="off"
         />
         <div id="radio-airport-results"></div>
