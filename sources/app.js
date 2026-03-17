@@ -35,6 +35,8 @@ const PHOTO_URL = "/api/aircraft-photo";
 const WX_URL = "/api/weather";
 const WX_MAP_URL = "/api/weather-map";
 const SETTINGS_URL = "/api/settings/opensky";
+const LIVE_ATC_AIRPORTS_URL = "/api/liveatc/airports";
+const LIVE_ATC_STREAM_URL = "/api/liveatc/stream";
 const GENERIC_AIRCRAFT_IMAGE = "/assets/aircraft-placeholder.svg";
 const EARTH_R = 6_371_000;
 const MIN_POLL_MS = 15_000;
@@ -112,7 +114,7 @@ let focusSearchSelection = null;
 const SEARCH_STATUS_DEFAULT = "";
 const SEARCH_HINT_DEFAULT = "Ex: AFR6712, F-GSQJ, 4CA9C2 ou France";
 const SEARCH_RESULT_LIMIT = 24;
-const LIVE_ATC_FEEDS = [
+const DEFAULT_LIVE_ATC_FEEDS = [
   {
     icao: "LFPG",
     name: "Paris Charles de Gaulle",
@@ -184,6 +186,7 @@ const LIVE_ATC_FEEDS = [
     pageUrl: "https://www.liveatc.net/search/?icao=OMDB",
   },
 ];
+let liveAtcFeeds = DEFAULT_LIVE_ATC_FEEDS.map((feed) => ({ ...feed }));
 
 const $ = (id) => document.getElementById(id);
 
@@ -247,12 +250,45 @@ function normalizeSearchText(value) {
 
 function filterLiveAtcFeeds(rawQuery) {
   const query = normalizeSearchText(rawQuery);
-  if (!query) return LIVE_ATC_FEEDS.slice();
-  return LIVE_ATC_FEEDS.filter((feed) =>
+  if (!query) return liveAtcFeeds.slice();
+  return liveAtcFeeds.filter((feed) =>
     [feed.icao, feed.name, feed.city, feed.country].some((value) =>
       normalizeSearchText(value).includes(query),
     ),
   );
+}
+
+function mergeLiveAtcAirportCatalog(airports = []) {
+  const defaultsByIcao = new Map(
+    DEFAULT_LIVE_ATC_FEEDS.map((feed) => [feed.icao, { ...feed }]),
+  );
+  if (!Array.isArray(airports) || !airports.length) {
+    liveAtcFeeds = DEFAULT_LIVE_ATC_FEEDS.map((feed) => ({ ...feed }));
+    return;
+  }
+  const merged = [];
+  for (const airport of airports) {
+    const icao = normalizeSearchText(airport?.icao || "");
+    if (icao.length !== 4) continue;
+    const base = defaultsByIcao.get(icao) || {};
+    const label = String(airport?.label || "").trim();
+    const fallbackName = label.includes(" - ") ? label.split(" - ", 2)[1] : label;
+    merged.push({
+      ...base,
+      icao,
+      name: String(airport?.name || fallbackName || base.name || icao).trim(),
+      city: String(airport?.city || base.city || "").trim(),
+      country: String(airport?.country || base.country || "").trim(),
+      pageUrl:
+        String(airport?.page_url || "").trim() ||
+        base.pageUrl ||
+        `https://www.liveatc.net/search/?icao=${encodeURIComponent(icao)}`,
+      streamUrl: base.streamUrl || "",
+    });
+  }
+  liveAtcFeeds = merged.length
+    ? merged
+    : DEFAULT_LIVE_ATC_FEEDS.map((feed) => ({ ...feed }));
 }
 
 function levenshteinWithinLimit(left, right, limit) {
@@ -2453,10 +2489,14 @@ async function main() {
   globeGroup.add(zoneLoadingMesh);
   let renderSamplingTick = 0;
   let radioFeedIndex = 0;
-  let radioFeed = LIVE_ATC_FEEDS.length > 0 ? LIVE_ATC_FEEDS[0] : null;
+  let radioFeed = liveAtcFeeds.length > 0 ? liveAtcFeeds[0] : null;
 
   function syncRadioAirportPing() {
-    if (!radioFeed) {
+    if (
+      !radioFeed ||
+      !Number.isFinite(radioFeed.lat) ||
+      !Number.isFinite(radioFeed.lng)
+    ) {
       world.pointsData([]);
       world.ringsData([]);
       return;
@@ -2479,8 +2519,10 @@ async function main() {
   function syncRadioWidget() {
     if (!radioFeed) return;
     $("radio-airport-code").textContent = radioFeed.icao;
-    $("radio-airport-name").textContent =
-      `${radioFeed.name} · ${radioFeed.city}, ${radioFeed.country}`;
+    const parts = [radioFeed.name];
+    const locality = [radioFeed.city, radioFeed.country].filter(Boolean).join(", ");
+    if (locality) parts.push(locality);
+    $("radio-airport-name").textContent = parts.filter(Boolean).join(" · ");
   }
 
   function renderRadioAirportResults(query = "") {
@@ -2493,19 +2535,39 @@ async function main() {
       button.className = "radio-airport-option";
       button.type = "button";
       button.dataset.icao = feed.icao;
-      button.innerHTML = `<strong>${feed.icao} · ${feed.name}</strong><span>${feed.city}, ${feed.country}</span>`;
+      const locality = [feed.city, feed.country].filter(Boolean).join(", ");
+      button.innerHTML = `<strong>${feed.icao} · ${feed.name}</strong><span>${locality || "LiveATC"}</span>`;
       container.appendChild(button);
     }
   }
 
   async function setRadioFeedByIndex(index, { autoplay = false } = {}) {
-    if (!LIVE_ATC_FEEDS.length) return;
+    if (!liveAtcFeeds.length) return;
     radioFeedIndex =
-      ((index % LIVE_ATC_FEEDS.length) + LIVE_ATC_FEEDS.length) %
-      LIVE_ATC_FEEDS.length;
-    radioFeed = LIVE_ATC_FEEDS[radioFeedIndex];
+      ((index % liveAtcFeeds.length) + liveAtcFeeds.length) %
+      liveAtcFeeds.length;
+    radioFeed = liveAtcFeeds[radioFeedIndex];
     const audio = $("radio-audio");
     if (!audio || !radioFeed) return;
+    if (!radioFeed.streamUrl) {
+      try {
+        const response = await fetch(
+          `${LIVE_ATC_STREAM_URL}?icao=${encodeURIComponent(radioFeed.icao)}`,
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        radioFeed.streamUrl = payload.stream_url || "";
+        if (payload.page_url) radioFeed.pageUrl = payload.page_url;
+      } catch (error) {
+        syncRadioWidget();
+        syncRadioAirportPing();
+        setRadioStatus(
+          `Impossible de charger le flux ${radioFeed.icao} (${error.message})`,
+        );
+        return;
+      }
+    }
+    if (!radioFeed.streamUrl) return;
     if (audio.src !== radioFeed.streamUrl) audio.src = radioFeed.streamUrl;
     syncRadioWidget();
     syncRadioAirportPing();
@@ -2515,6 +2577,25 @@ async function main() {
     } catch (error) {
       setRadioStatus("Lecture bloquée (interaction utilisateur requise)");
     }
+  }
+
+  async function loadLiveAtcAirports() {
+    try {
+      const response = await fetch(LIVE_ATC_AIRPORTS_URL);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      mergeLiveAtcAirportCatalog(payload.airports || []);
+    } catch (error) {
+      mergeLiveAtcAirportCatalog([]);
+      setRadioStatus("Catalogue LiveATC indisponible, liste par défaut active");
+    }
+    if (liveAtcFeeds.length <= 0) {
+      radioFeedIndex = 0;
+      radioFeed = null;
+      return;
+    }
+    radioFeedIndex = Math.max(0, Math.min(radioFeedIndex, liveAtcFeeds.length - 1));
+    radioFeed = liveAtcFeeds[radioFeedIndex];
   }
 
   function ensureRenderCapacity(requiredCount) {
@@ -3078,7 +3159,7 @@ async function main() {
         : null;
     if (!button) return;
     const icao = button.dataset.icao;
-    const index = LIVE_ATC_FEEDS.findIndex((feed) => feed.icao === icao);
+    const index = liveAtcFeeds.findIndex((feed) => feed.icao === icao);
     if (index < 0) return;
     setRadioFeedByIndex(index, { autoplay: true });
     $("radio-airport-modal")?.classList.remove("visible");
@@ -3103,6 +3184,7 @@ async function main() {
       if (!audio.src || audio.src === "") {
         await setRadioFeedByIndex(radioFeedIndex, { autoplay: false });
       }
+      if (!audio.src || audio.src === "") return;
       try {
         await audio.play();
       } catch (error) {
@@ -3129,6 +3211,7 @@ async function main() {
     setRadioStatus("Flux indisponible, passez au canal suivant");
   });
 
+  await loadLiveAtcAirports();
   setSearchFeedback();
   syncRadioWidget();
   syncRadioAirportPing();

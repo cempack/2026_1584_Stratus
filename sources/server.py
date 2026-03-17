@@ -11,6 +11,7 @@ from __future__ import annotations
 import atexit
 import copy
 import gzip
+import html
 import json
 import math
 import os
@@ -34,6 +35,9 @@ OPENSKY_TOKEN_URL = (
 METEO_URL = "https://api.open-meteo.com/v1/forecast"
 ADSBDB_AIRCRAFT_URL = "https://api.adsbdb.com/v0/aircraft/{hex_id}"
 ADSBDB_CALLSIGN_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
+LIVEATC_SEARCH_URL = "https://www.liveatc.net/search/"
+LIVEATC_STREAM_BASE_URL = "https://d.liveatc.net"
+LIVEATC_CACHE_TTL_SECONDS = 6 * 60 * 60
 
 DATA_PROVIDER = "opensky"
 DATA_SOURCE_LABEL = "OpenSky Network"
@@ -194,6 +198,8 @@ source_health = {
     "user_message": API_KEY_NOTICE_FR,
 }
 photo_cache = {}
+liveatc_cache = {"airports": [], "fetched_at": 0.0}
+liveatc_lock = threading.Lock()
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
@@ -258,6 +264,64 @@ def normalize_hex_id(value):
 def normalize_callsign(value):
     normalized = re.sub(r"\s+", "", (value or "").upper())
     return normalized or None
+
+
+def parse_liveatc_airports_from_search_page(page_text):
+    airports = {}
+    for value, label in re.findall(
+        r'<option[^>]*value="([^"]+)"[^>]*>(.*?)</option>',
+        page_text,
+        flags=re.IGNORECASE | re.DOTALL,
+    ):
+        icao = re.sub(r"[^A-Z0-9]", "", value.upper())
+        if len(icao) != 4:
+            continue
+        pretty_label = html.unescape(re.sub(r"<[^>]+>", "", label or "")).strip()
+        if not pretty_label:
+            continue
+        name = pretty_label
+        if " - " in pretty_label:
+            left, right = pretty_label.split(" - ", 1)
+            if left.strip().upper() == icao:
+                name = right.strip() or pretty_label
+        airport = {
+            "icao": icao,
+            "label": pretty_label,
+            "name": name,
+            "city": "",
+            "country": "",
+            "page_url": f"{LIVEATC_SEARCH_URL}?icao={quote(icao)}",
+        }
+        airports[icao] = airport
+    return sorted(airports.values(), key=lambda item: item["icao"])
+
+
+def parse_liveatc_stream_id(page_text):
+    match = re.search(r"/archive\.php\?m=([a-zA-Z0-9_]+)", page_text)
+    if match:
+        return match.group(1)
+    match = re.search(r"/listen\.php\?m=([a-zA-Z0-9_]+)", page_text)
+    if match:
+        return match.group(1)
+    return None
+
+
+def get_liveatc_airports(force_refresh=False):
+    now = time.time()
+    with liveatc_lock:
+        cached_airports = list(liveatc_cache.get("airports") or [])
+        cached_at = float(liveatc_cache.get("fetched_at") or 0.0)
+    if cached_airports and not force_refresh and now - cached_at < LIVEATC_CACHE_TTL_SECONDS:
+        return cached_airports, True
+    response = http.get(LIVEATC_SEARCH_URL, timeout=(8, 15))
+    response.raise_for_status()
+    airports = parse_liveatc_airports_from_search_page(response.text)
+    if not airports:
+        raise ValueError("No LiveATC airports detected")
+    with liveatc_lock:
+        liveatc_cache["airports"] = airports
+        liveatc_cache["fetched_at"] = now
+    return airports, False
 
 
 def meters_to_feet(value):
@@ -1796,6 +1860,50 @@ def api_trajectory():
     payload = build_selected_plane_payload(plane)
     payload["hex"] = hex_id
     return json_response(payload)
+
+
+@app.route("/api/liveatc/airports")
+def api_liveatc_airports():
+    refresh = (request.args.get("refresh") or "").strip().lower() in {"1", "true", "yes"}
+    try:
+        airports, from_cache = get_liveatc_airports(force_refresh=refresh)
+    except Exception as exc:
+        with liveatc_lock:
+            fallback = list(liveatc_cache.get("airports") or [])
+        if fallback:
+            return json_response(
+                {
+                    "airports": fallback,
+                    "cached": True,
+                    "warning": f"LiveATC indisponible: {exc}",
+                }
+            )
+        return jsonify({"error": f"LiveATC indisponible: {exc}"}), 502
+    return json_response({"airports": airports, "cached": from_cache})
+
+
+@app.route("/api/liveatc/stream")
+def api_liveatc_stream():
+    icao = re.sub(r"[^A-Z0-9]", "", (request.args.get("icao") or "").upper())
+    if len(icao) != 4:
+        return jsonify({"error": "Invalid ICAO code"}), 400
+    page_url = f"{LIVEATC_SEARCH_URL}?icao={quote(icao)}"
+    try:
+        response = http.get(page_url, timeout=(8, 15))
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        return jsonify({"error": f"LiveATC indisponible: {exc}"}), 502
+    feed_id = parse_liveatc_stream_id(response.text)
+    if not feed_id:
+        return jsonify({"error": f"Aucun flux actif trouvé pour {icao}", "icao": icao}), 404
+    return json_response(
+        {
+            "icao": icao,
+            "feed_id": feed_id,
+            "stream_url": f"{LIVEATC_STREAM_BASE_URL}/{feed_id}",
+            "page_url": page_url,
+        }
+    )
 
 
 @app.route("/api/settings/opensky", methods=["GET", "POST", "DELETE"])
