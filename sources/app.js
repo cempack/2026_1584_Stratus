@@ -209,7 +209,7 @@ function mergeLiveAtcAirportCatalog(airports = []) {
       pageUrl:
         String(airport?.page_url || "").trim() ||
         `https://www.liveatc.net/search/?icao=${encodeURIComponent(icao)}`,
-      streamUrl: "",
+      streamUrl: String(airport?.stream_url || "").trim(),
     });
   }
   liveAtcFeeds = merged;
