@@ -112,6 +112,78 @@ let focusSearchSelection = null;
 const SEARCH_STATUS_DEFAULT = "";
 const SEARCH_HINT_DEFAULT = "Ex: AFR6712, F-GSQJ, 4CA9C2 ou France";
 const SEARCH_RESULT_LIMIT = 24;
+const LIVE_ATC_FEEDS = [
+  {
+    icao: "LFPG",
+    name: "Paris Charles de Gaulle",
+    city: "Paris",
+    country: "France",
+    lat: 49.0097,
+    lng: 2.5479,
+    streamUrl: "https://d.liveatc.net/lfpg_twr",
+    pageUrl: "https://www.liveatc.net/search/?icao=LFPG",
+  },
+  {
+    icao: "EGLL",
+    name: "London Heathrow",
+    city: "London",
+    country: "United Kingdom",
+    lat: 51.47,
+    lng: -0.4543,
+    streamUrl: "https://d.liveatc.net/egll_twr",
+    pageUrl: "https://www.liveatc.net/search/?icao=EGLL",
+  },
+  {
+    icao: "KJFK",
+    name: "John F. Kennedy",
+    city: "New York",
+    country: "United States",
+    lat: 40.6413,
+    lng: -73.7781,
+    streamUrl: "https://d.liveatc.net/kjfk_twr",
+    pageUrl: "https://www.liveatc.net/search/?icao=KJFK",
+  },
+  {
+    icao: "KLAX",
+    name: "Los Angeles Intl",
+    city: "Los Angeles",
+    country: "United States",
+    lat: 33.9416,
+    lng: -118.4085,
+    streamUrl: "https://d.liveatc.net/klax_twr",
+    pageUrl: "https://www.liveatc.net/search/?icao=KLAX",
+  },
+  {
+    icao: "KSFO",
+    name: "San Francisco Intl",
+    city: "San Francisco",
+    country: "United States",
+    lat: 37.6213,
+    lng: -122.379,
+    streamUrl: "https://d.liveatc.net/ksfo_twr",
+    pageUrl: "https://www.liveatc.net/search/?icao=KSFO",
+  },
+  {
+    icao: "EDDF",
+    name: "Frankfurt am Main",
+    city: "Frankfurt",
+    country: "Germany",
+    lat: 50.0379,
+    lng: 8.5622,
+    streamUrl: "https://d.liveatc.net/eddf_twr",
+    pageUrl: "https://www.liveatc.net/search/?icao=EDDF",
+  },
+  {
+    icao: "OMDB",
+    name: "Dubai Intl",
+    city: "Dubai",
+    country: "United Arab Emirates",
+    lat: 25.2532,
+    lng: 55.3657,
+    streamUrl: "https://d.liveatc.net/omdb_twr",
+    pageUrl: "https://www.liveatc.net/search/?icao=OMDB",
+  },
+];
 
 const $ = (id) => document.getElementById(id);
 
@@ -171,6 +243,16 @@ function normalizeSearchText(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
     .trim();
+}
+
+function filterLiveAtcFeeds(rawQuery) {
+  const query = normalizeSearchText(rawQuery);
+  if (!query) return LIVE_ATC_FEEDS.slice();
+  return LIVE_ATC_FEEDS.filter((feed) =>
+    [feed.icao, feed.name, feed.city, feed.country].some((value) =>
+      normalizeSearchText(value).includes(query),
+    ),
+  );
 }
 
 function levenshteinWithinLimit(left, right, limit) {
@@ -2241,6 +2323,20 @@ async function main() {
     .pathColor((path) => path.color)
     .pathStroke((path) => path.stroke)
     .pathResolution(4)
+    .pointsData([])
+    .pointLat((point) => point.lat)
+    .pointLng((point) => point.lng)
+    .pointAltitude(() => 0.0016)
+    .pointRadius((point) => point.radius || 0.22)
+    .pointColor((point) => point.color || "rgba(121, 240, 223, 0.92)")
+    .pointsMerge(false)
+    .ringsData([])
+    .ringLat((point) => point.lat)
+    .ringLng((point) => point.lng)
+    .ringMaxRadius(() => 3.6)
+    .ringPropagationSpeed(() => 0.95)
+    .ringRepeatPeriod(() => 950)
+    .ringColor(() => ["rgba(121, 240, 223, 0.78)", "rgba(121, 240, 223, 0)"])
     .htmlElementsData([])
     .htmlLat((point) => point.lat)
     .htmlLng((point) => point.lng)
@@ -2356,6 +2452,70 @@ async function main() {
   globeGroup.add(zonePendingMesh);
   globeGroup.add(zoneLoadingMesh);
   let renderSamplingTick = 0;
+  let radioFeedIndex = 0;
+  let radioFeed = LIVE_ATC_FEEDS[0] || null;
+
+  function syncRadioAirportPing() {
+    if (!radioFeed) {
+      world.pointsData([]);
+      world.ringsData([]);
+      return;
+    }
+    world.pointsData([
+      {
+        lat: radioFeed.lat,
+        lng: radioFeed.lng,
+        radius: 0.24,
+      },
+    ]);
+    world.ringsData([{ lat: radioFeed.lat, lng: radioFeed.lng }]);
+  }
+
+  function setRadioStatus(text) {
+    const node = $("radio-status");
+    if (node) node.textContent = text;
+  }
+
+  function syncRadioWidget() {
+    if (!radioFeed) return;
+    $("radio-airport-code").textContent = radioFeed.icao;
+    $("radio-airport-name").textContent =
+      `${radioFeed.name} · ${radioFeed.city}, ${radioFeed.country}`;
+  }
+
+  function renderRadioAirportResults(query = "") {
+    const container = $("radio-airport-results");
+    if (!container) return;
+    const matches = filterLiveAtcFeeds(query);
+    container.innerHTML = "";
+    for (const feed of matches) {
+      const button = document.createElement("button");
+      button.className = "radio-airport-option";
+      button.type = "button";
+      button.dataset.icao = feed.icao;
+      button.innerHTML = `<strong>${feed.icao} · ${feed.name}</strong><span>${feed.city}, ${feed.country}</span>`;
+      container.appendChild(button);
+    }
+  }
+
+  async function setRadioFeedByIndex(index, { autoplay = false } = {}) {
+    if (!LIVE_ATC_FEEDS.length) return;
+    radioFeedIndex =
+      ((index % LIVE_ATC_FEEDS.length) + LIVE_ATC_FEEDS.length) %
+      LIVE_ATC_FEEDS.length;
+    radioFeed = LIVE_ATC_FEEDS[radioFeedIndex];
+    const audio = $("radio-audio");
+    if (!audio || !radioFeed) return;
+    if (audio.src !== radioFeed.streamUrl) audio.src = radioFeed.streamUrl;
+    syncRadioWidget();
+    syncRadioAirportPing();
+    if (!autoplay) return;
+    try {
+      await audio.play();
+    } catch (error) {
+      setRadioStatus("Lecture bloquée (interaction utilisateur requise)");
+    }
+  }
 
   function ensureRenderCapacity(requiredCount) {
     if (requiredCount <= renderPlaneCapacity) return;
@@ -2837,6 +2997,11 @@ async function main() {
         closeSettingsModalShell();
         return;
       }
+      if ($("radio-airport-modal")?.classList.contains("visible")) {
+        $("radio-airport-modal")?.classList.remove("visible");
+        $("radio-airport-modal")?.setAttribute("aria-hidden", "true");
+        return;
+      }
       clearSearch();
     }
   });
@@ -2879,7 +3044,86 @@ async function main() {
     selectSearchResult(index);
   });
 
+  $("radio-open-airports")?.addEventListener("click", () => {
+    $("radio-airport-modal")?.classList.add("visible");
+    $("radio-airport-modal")?.setAttribute("aria-hidden", "false");
+    renderRadioAirportResults($("radio-airport-search")?.value || "");
+    $("radio-airport-search")?.focus();
+  });
+
+  $("close-radio-airports")?.addEventListener("click", () => {
+    $("radio-airport-modal")?.classList.remove("visible");
+    $("radio-airport-modal")?.setAttribute("aria-hidden", "true");
+  });
+
+  $("radio-airport-modal")?.addEventListener("click", (event) => {
+    if (event.target === $("radio-airport-modal")) {
+      $("radio-airport-modal")?.classList.remove("visible");
+      $("radio-airport-modal")?.setAttribute("aria-hidden", "true");
+    }
+  });
+
+  $("radio-airport-search")?.addEventListener("input", () => {
+    renderRadioAirportResults($("radio-airport-search")?.value || "");
+  });
+
+  $("radio-airport-results")?.addEventListener("click", (event) => {
+    const button =
+      event.target instanceof Element
+        ? event.target.closest(".radio-airport-option")
+        : null;
+    if (!button) return;
+    const icao = button.dataset.icao;
+    const index = LIVE_ATC_FEEDS.findIndex((feed) => feed.icao === icao);
+    if (index < 0) return;
+    setRadioFeedByIndex(index, { autoplay: true });
+    $("radio-airport-modal")?.classList.remove("visible");
+    $("radio-airport-modal")?.setAttribute("aria-hidden", "true");
+  });
+
+  $("radio-prev")?.addEventListener("click", () => {
+    const audio = $("radio-audio");
+    setRadioFeedByIndex(radioFeedIndex - 1, { autoplay: !audio?.paused });
+  });
+
+  $("radio-next")?.addEventListener("click", () => {
+    const audio = $("radio-audio");
+    setRadioFeedByIndex(radioFeedIndex + 1, { autoplay: !audio?.paused });
+  });
+
+  $("radio-play")?.addEventListener("click", async () => {
+    const audio = $("radio-audio");
+    if (!audio) return;
+    if (audio.paused) {
+      if (!audio.src) await setRadioFeedByIndex(radioFeedIndex, { autoplay: false });
+      try {
+        await audio.play();
+      } catch (error) {
+        setRadioStatus("Lecture bloquée (interaction utilisateur requise)");
+      }
+      return;
+    }
+    audio.pause();
+  });
+
+  $("radio-audio")?.addEventListener("play", () => {
+    $("radio-play").textContent = "⏸";
+    setRadioStatus(`Lecture ${radioFeed?.icao || ""} · liveatc.net`);
+  });
+
+  $("radio-audio")?.addEventListener("pause", () => {
+    $("radio-play").textContent = "▶";
+    setRadioStatus("Pause");
+  });
+
+  $("radio-audio")?.addEventListener("error", () => {
+    setRadioStatus("Flux indisponible, passez au canal suivant");
+  });
+
   setSearchFeedback();
+  syncRadioWidget();
+  syncRadioAirportPing();
+  renderRadioAirportResults();
 
   window.addEventListener("resize", () => {
     world.width(window.innerWidth);
