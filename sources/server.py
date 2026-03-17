@@ -380,6 +380,22 @@ def parse_liveatc_stream_details(page_text):
     return None
 
 
+def parse_liveatc_streams_from_feed_index(page_text):
+    """Return an ICAO->stream mapping parsed from LiveATC feedindex HTML rows."""
+    streams = {}
+    for row_html in re.findall(
+        r"<tr[^>]*>.*?</tr>", page_text, flags=re.IGNORECASE | re.DOTALL
+    ):
+        icao_match = re.search(r"search/\?icao=([A-Z0-9]{4})", row_html)
+        if not icao_match:
+            continue
+        icao = icao_match.group(1)
+        stream = parse_liveatc_stream_details(row_html)
+        if stream and icao not in streams:
+            streams[icao] = stream
+    return streams
+
+
 def get_liveatc(url, timeout=(8, 15)):
     return http.get(url, headers=LIVEATC_BROWSER_HEADERS, timeout=timeout)
 
@@ -434,9 +450,14 @@ def get_liveatc_airports(force_refresh=False):
         airports_by_icao = load_ourairports_metadata(force_refresh=force_refresh)
     except Exception:
         airports_by_icao = {}
-    response = get_liveatc(LIVEATC_SEARCH_URL, timeout=(8, 15))
-    response.raise_for_status()
-    airports = parse_liveatc_airports_from_search_page(response.text, airports_by_icao)
+    airports = []
+    search_error = None
+    try:
+        response = get_liveatc(LIVEATC_SEARCH_URL, timeout=(8, 15))
+        response.raise_for_status()
+        airports = parse_liveatc_airports_from_search_page(response.text, airports_by_icao)
+    except requests.RequestException as exc:
+        search_error = exc
     if not airports:
         fallback_response = get_liveatc(LIVEATC_FEED_INDEX_URL, timeout=(8, 20))
         fallback_response.raise_for_status()
@@ -444,6 +465,8 @@ def get_liveatc_airports(force_refresh=False):
             fallback_response.text, airports_by_icao
         )
     if not airports:
+        if search_error is not None:
+            raise search_error
         raise ValueError("No LiveATC airports detected")
     with liveatc_lock:
         liveatc_cache["airports"] = airports
@@ -2015,12 +2038,37 @@ def api_liveatc_stream():
     if len(icao) != 4:
         return jsonify({"error": "Invalid ICAO code"}), 400
     page_url = f"{LIVEATC_SEARCH_URL}?icao={quote(icao)}"
+    stream = None
+    search_error = None
     try:
         response = get_liveatc(page_url, timeout=(8, 15))
         response.raise_for_status()
+        stream = parse_liveatc_stream_details(response.text)
     except requests.RequestException as exc:
-        return jsonify({"error": f"LiveATC indisponible: {exc}"}), 502
-    stream = parse_liveatc_stream_details(response.text)
+        search_error = exc
+
+    if not stream:
+        try:
+            fallback_response = get_liveatc(LIVEATC_FEED_INDEX_URL, timeout=(8, 20))
+            fallback_response.raise_for_status()
+            stream = parse_liveatc_streams_from_feed_index(fallback_response.text).get(icao)
+            if stream:
+                page_url = LIVEATC_FEED_INDEX_URL
+        except requests.RequestException as exc:
+            if search_error is not None:
+                return (
+                    jsonify(
+                        {
+                            "error": (
+                                "LiveATC indisponible: "
+                                f"{search_error}; fallback feedindex indisponible: {exc}"
+                            )
+                        }
+                    ),
+                    502,
+                )
+            return jsonify({"error": f"LiveATC indisponible: {exc}"}), 502
+
     if not stream:
         return jsonify({"error": f"Aucun flux actif trouvé pour {icao}", "icao": icao}), 404
     return json_response(
