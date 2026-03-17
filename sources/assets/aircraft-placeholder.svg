@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">Illustration d'avion</title>
+  <desc id="desc">Design 3D radar stylisé avec un avion en forme géométrique néon</desc>
+  <defs>
+    <!-- Background matching STRATUS deep dark space -->
+    <radialGradient id="bg" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#0E131F"/>
+      <stop offset="100%" stop-color="#05080E"/>
+    </radialGradient>
+
+    <!-- Translucent glass gradients for faces -->
+    <linearGradient id="glass-cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00ccff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#00ccff" stop-opacity="0.05"/>
+    </linearGradient>
+
+    <linearGradient id="glass-magenta" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff44cc" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ff44cc" stop-opacity="0.05"/>
+    </linearGradient>
+
+    <linearGradient id="glass-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3366ff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#3366ff" stop-opacity="0.1"/>
+    </linearGradient>
+
+    <linearGradient id="trail-gradient" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffee00" stop-opacity="0"/>
+      <stop offset="30%" stop-color="#00ff88" stop-opacity="0.4"/>
+      <stop offset="70%" stop-color="#00ccff" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ff44cc" stop-opacity="1"/>
+    </linearGradient>
+
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="intense-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur1" />
+      <feGaussianBlur stdDeviation="4" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Layer -->
+  <rect width="640" height="420" rx="24" fill="url(#bg)"/>
+  <rect x="1" y="1" width="638" height="418" rx="23" fill="none" stroke="#ffffff" stroke-opacity="0.05" stroke-width="2"/>
+
+  <!-- Radar / Globe Grid matching the Stratus theme -->
+  <g stroke="#00ccff" stroke-opacity="0.08" fill="none" stroke-width="1.5">
+    <circle cx="320" cy="210" r="160"/>
+    
+    <ellipse cx="320" cy="210" rx="100" ry="160"/>
+    <ellipse cx="320" cy="210" rx="40" ry="160"/>
+
+    <ellipse cx="320" cy="210" rx="160" ry="100"/>
+    <ellipse cx="320" cy="210" rx="160" ry="40"/>
+  </g>
+
+  <!-- Flight Path Trail and points -->
+  <g>
+    <!-- Trail Curve -->
+    <path d="M 40 380 Q 120 320 260 230" fill="none" stroke="url(#trail-gradient)" stroke-width="6" stroke-linecap="round" filter="url(#glow)"/>
+    
+    <!-- Trail Data Points -->
+    <g filter="url(#glow)">
+      <circle cx="135" cy="313" r="3" fill="#00ccff"/>
+      <circle cx="194" cy="273" r="3" fill="#ff44cc"/>
+      <!-- Glowing dot at Tail -->
+      <circle cx="260" cy="230" r="4" fill="#ffffff" filter="url(#intense-glow)"/>
+    </g>
+  </g>
+
+  <!-- Bloom / Glow Layer for Plane Edges -->
+  <g filter="url(#intense-glow)">
+    <!-- Right Wing -->
+    <path d="M 500 130 L 260 230 L 410 290 Z" fill="none" stroke="#ff44cc" stroke-width="3" stroke-linejoin="round"/>
+    <!-- Keel -->
+    <path d="M 500 130 L 260 230 L 230 290 Z" fill="none" stroke="#3366ff" stroke-width="3" stroke-linejoin="round"/>
+    <!-- Left Wing -->
+    <path d="M 500 130 L 180 140 L 260 230 Z" fill="none" stroke="#00ccff" stroke-width="3" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Solid crisp plane with Glassmorphism -->
+  <g>
+    <!-- Right Wing -->
+    <path d="M 500 130 L 260 230 L 410 290 Z" fill="url(#glass-magenta)" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" opacity="0.9"/>
+    
+    <!-- Keel -->
+    <path d="M 500 130 L 260 230 L 230 290 Z" fill="url(#glass-blue)" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" opacity="0.9"/>
+
+    <!-- Left Wing -->
+    <path d="M 500 130 L 180 140 L 260 230 Z" fill="url(#glass-cyan)" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" opacity="0.9"/>
+    
+    <!-- Nose Highlight Glow -->
+    <circle cx="500" cy="130" r="2.5" fill="#ffffff" filter="url(#glow)"/>
+  </g>
+
+  <!-- Typography matching UI labels -->
+  <text x="320" y="385" font-family="'Inter', 'Roboto', 'Manrope', system-ui, sans-serif" font-size="22" font-weight="700" letter-spacing="6" fill="#94A3B8" text-anchor="middle">
+    PHOTO NON DISPONIBLE
+  </text>
+</svg>
