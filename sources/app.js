@@ -16,6 +16,7 @@ import {
   computeVariantRenderMetrics,
   DEFAULT_PICK_RADIUS,
 } from "./client/aircraft-visuals.mjs";
+import { applyPhotoMetadataToPlane } from "./client/aircraft-metadata.mjs";
 import {
   deriveConnectionStatus,
   deriveLoadState,
@@ -1260,21 +1261,6 @@ function photoRequestKeyForPlane(plane) {
   return plane ? `${plane.hex || ""}:${plane.registration || ""}` : "";
 }
 
-function applyPhotoMetadataToPlane(plane, payload) {
-  if (!plane || !payload) return;
-  if (payload.mode_s) plane.mode_s = payload.mode_s;
-  if (payload.registration) plane.registration = payload.registration;
-  if (payload.manufacturer) plane.manufacturer = payload.manufacturer;
-  if (payload.aircraft_model) plane.aircraft_model = payload.aircraft_model;
-  if (payload.aircraft_type) plane.aircraft_type = payload.aircraft_type;
-  if (payload.aircraft_description) {
-    plane.aircraft_description = payload.aircraft_description;
-  }
-  if (payload.owner) plane.owner = payload.owner;
-  if (payload.operator_code) plane.operator_code = payload.operator_code;
-  if (payload.country) plane.country = payload.country;
-  if (searchResultState.results.length) renderSearchResults();
-}
 
 function searchResultMeta(plane) {
   const lead = plane.registration || plane.hex?.toUpperCase() || "—";
@@ -1916,7 +1902,9 @@ async function fetchPhotoForPlane(plane) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     if (activePhotoRequestKey !== requestKey) return;
-    applyPhotoMetadataToPlane(plane, payload);
+    applyPhotoMetadataToPlane(plane, payload, () => {
+      if (searchResultState.results.length) renderSearchResults();
+    });
     if (selectedHex === plane.hex) {
       selectedPhotoState = {
         hex: plane.hex,
@@ -2364,7 +2352,9 @@ async function main() {
         hex: payload.hex,
         pending: false,
       };
-      applyPhotoMetadataToPlane(selectedPlane, payload);
+      applyPhotoMetadataToPlane(selectedPlane, payload, () => {
+        if (searchResultState.results.length) renderSearchResults();
+      });
       selectedPlane.trail = payload.trail || [];
       selectedPlane.route_origin = payload.route_origin || null;
       selectedPlane.route_destination = payload.route_destination || null;
