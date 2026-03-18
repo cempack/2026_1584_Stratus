@@ -556,71 +556,30 @@ def load_ourairports_metadata(force_refresh=False):
 
 
 def get_liveatc_airports(force_refresh=False):
-    now = time.time()
-    with liveatc_lock:
-        cached_airports = list(liveatc_cache.get("airports") or [])
-        cached_at = float(liveatc_cache.get("fetched_at") or 0.0)
-    if cached_airports and not force_refresh and now - cached_at < LIVEATC_CACHE_TTL_SECONDS:
-        return cached_airports, True
-    airports_by_icao = {}
+    import json
+    data_file = os.path.join(os.path.dirname(__file__), "data", "liveatc_feeds.json")
     try:
-        airports_by_icao = load_ourairports_metadata(force_refresh=force_refresh)
-    except Exception:
-        airports_by_icao = {}
-    airports = []
-    streams_by_icao = {}
-    search_error = None
-    feedindex_error = None
-    try:
-        response = get_liveatc(LIVEATC_SEARCH_URL, timeout=(8, 15))
-        response.raise_for_status()
-        airports = parse_liveatc_airports_from_search_page(response.text, airports_by_icao)
-    except requests.RequestException as exc:
-        search_error = exc
-    if not airports:
-        try:
-            fallback_response = get_liveatc(LIVEATC_FEED_INDEX_URL, timeout=(8, 20))
-            fallback_response.raise_for_status()
-            airports = parse_liveatc_airports_from_feed_index(
-                fallback_response.text, airports_by_icao
-            )
-            streams_by_icao = parse_liveatc_streams_from_feed_index(fallback_response.text)
-        except requests.RequestException as exc:
-            feedindex_error = exc
-    if not airports:
-        try:
-            playlist_response = http.get(ATC_COMMUNITY_PLAYLIST_URL, timeout=(8, 20))
-            playlist_response.raise_for_status()
-            streams_by_icao = parse_atc_playlist_streams(playlist_response.text)
-            airports = airports_from_stream_map(
-                streams_by_icao,
-                airports_by_icao=airports_by_icao,
-                page_url=ATC_COMMUNITY_PLAYLIST_URL,
-            )
-        except requests.RequestException:
+        with open(data_file, 'r') as f:
+            data = json.load(f)
+            airports = data.get("airports", [])
+
+            # build streams_by_icao
             streams_by_icao = {}
-    if not airports:
-        streams_by_icao = emergency_atc_streams()
-        airports = airports_from_stream_map(
-            streams_by_icao,
-            airports_by_icao=airports_by_icao,
-            page_url=ATC_COMMUNITY_PLAYLIST_URL,
-        )
-    if not airports:
-        if search_error is not None and feedindex_error is not None:
-            raise requests.RequestException(
-                f"{search_error}; fallback feedindex indisponible: {feedindex_error}"
-            )
-        if search_error is not None:
-            raise search_error
-        if feedindex_error is not None:
-            raise feedindex_error
-        raise ValueError("No LiveATC airports detected")
-    with liveatc_lock:
-        liveatc_cache["airports"] = airports
-        liveatc_cache["streams_by_icao"] = streams_by_icao
-        liveatc_cache["fetched_at"] = now
-    return airports, False
+            for a in airports:
+                streams_by_icao[a["icao"]] = {
+                    "stream_url": a.get("stream_url"),
+                    "feed_id": a.get("feed_id"),
+                    "label": a.get("label"),
+                }
+
+            with liveatc_lock:
+                liveatc_cache["airports"] = airports
+                liveatc_cache["streams_by_icao"] = streams_by_icao
+
+            return airports, True
+    except Exception as e:
+        print(f"Failed to load liveatc feeds from file: {e}", flush=True)
+        return [], False
 
 
 def meters_to_feet(value):
@@ -2070,6 +2029,56 @@ def lookup_aircraft_photo(hex_id=None, registration=None):
     photo_cache_put(request_key, result)
     return copy.deepcopy(result)
 
+
+def check_liveatc_health():
+    import requests
+    import time
+
+    # Wait initially to not block startup
+    time.sleep(10)
+
+    while True:
+        try:
+            with liveatc_lock:
+                airports = list(liveatc_cache.get("airports", []))
+
+            if not airports:
+                time.sleep(60)
+                continue
+
+            working_airports = []
+            working_streams = {}
+            for a in airports:
+                stream_url = a.get("stream_url")
+                is_ok = False
+                if stream_url:
+                    try:
+                        resp = requests.head(stream_url, headers=LIVEATC_BROWSER_HEADERS, timeout=5)
+                        if resp.status_code < 400:
+                            is_ok = True
+                        else:
+                            resp = requests.get(stream_url, headers=LIVEATC_BROWSER_HEADERS, timeout=5, stream=True)
+                            is_ok = resp.status_code < 400
+                            resp.close()
+                    except Exception:
+                        pass
+
+                if is_ok:
+                    working_airports.append(a)
+                    working_streams[a["icao"]] = {
+                        "stream_url": a.get("stream_url"),
+                        "feed_id": a.get("feed_id"),
+                        "label": a.get("label")
+                    }
+
+            with liveatc_lock:
+                liveatc_cache["airports"] = working_airports
+                liveatc_cache["streams_by_icao"] = working_streams
+
+        except Exception as e:
+            print(f"[liveatc health] error: {e}", flush=True)
+
+        time.sleep(300)
 
 def start_pollers():
     global poller_started, cache_snapshot_started, cache_restore_attempted

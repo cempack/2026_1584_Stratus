@@ -1,0 +1,53 @@
+{
+  "airports": [
+    {
+      "icao": "CYTS",
+      "label": "Toronto Area Control Centre Timmins (CYTS)",
+      "name": "Timmins/Victor M. Power",
+      "city": "Timmins",
+      "country": "CA",
+      "lat": 48.569698333699996,
+      "lng": -81.376701355,
+      "page_url": "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/streema/Air_Traffic_Control.m3u",
+      "stream_url": "https://broadcastify.cdnstream1.com/4455",
+      "feed_id": "4455"
+    },
+    {
+      "icao": "KABQ",
+      "label": "Albuquerque International Sunport Airport",
+      "name": "Albuquerque International Sunport",
+      "city": "Albuquerque",
+      "country": "US",
+      "lat": 35.039976,
+      "lng": -106.608925,
+      "page_url": "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/streema/Air_Traffic_Control.m3u",
+      "stream_url": "http://d.liveatc.net/kabq2_3",
+      "feed_id": "kabq2_3"
+    },
+    {
+      "icao": "CZUL",
+      "label": "Montreal Area Control Centre Timmins (CZUL)",
+      "name": "Montreal Area Control Centre Timmins (CZUL)",
+      "city": "",
+      "country": "",
+      "lat": null,
+      "lng": null,
+      "page_url": "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/streema/Air_Traffic_Control.m3u",
+      "stream_url": "https://audio1.broadcastify.com/919896480.mp3",
+      "feed_id": "919896480.mp3"
+    },
+    {
+      "icao": "KCVG",
+      "label": "Cincinnati/Northern Kentucky International Airport (KCVG)",
+      "name": "Cincinnati Northern Kentucky International Airport",
+      "city": "Cincinnati / Covington",
+      "country": "US",
+      "lat": 39.048801,
+      "lng": -84.667801,
+      "page_url": "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/streema/Air_Traffic_Control.m3u",
+      "stream_url": "http://broadcastify.cdnstream1.com/12531",
+      "feed_id": "12531"
+    }
+  ],
+  "fetched_at": 1773821281.3507102
+}
