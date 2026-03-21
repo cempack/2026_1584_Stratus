@@ -117,6 +117,7 @@ const SEARCH_RESULT_LIMIT = 24;
 const RADIO_ALL_AIRPORT_POINT_RADIUS = 0.42;
 const RADIO_ACTIVE_AIRPORT_POINT_RADIUS = 1.15;
 let liveAtcFeeds = [];
+let liveAtcFeedsMap = new Map();
 
 const $ = (id) => document.getElementById(id);
 
@@ -191,14 +192,17 @@ function filterLiveAtcFeeds(rawQuery) {
 function mergeLiveAtcAirportCatalog(airports = []) {
   if (!Array.isArray(airports) || !airports.length) {
     liveAtcFeeds = [];
+    liveAtcFeedsMap.clear();
     return;
   }
   const merged = [];
+  const mergedMap = new Map();
   for (const airport of airports) {
     const icao = normalizeSearchText(airport?.icao || "");
     if (icao.length !== 4) continue;
     const label = String(airport?.label || "").trim();
     const fallbackName = label.includes(" - ") ? label.split(" - ", 2)[1] : label;
+    const index = merged.length;
     merged.push({
       icao,
       name: String(airport?.name || fallbackName || icao).trim(),
@@ -211,8 +215,10 @@ function mergeLiveAtcAirportCatalog(airports = []) {
         `https://www.liveatc.net/search/?icao=${encodeURIComponent(icao)}`,
       streamUrl: String(airport?.stream_url || "").trim(),
     });
+    mergedMap.set(icao, index);
   }
   liveAtcFeeds = merged;
+  liveAtcFeedsMap = mergedMap;
 }
 
 function levenshteinWithinLimit(left, right, limit) {
@@ -3158,7 +3164,7 @@ async function main() {
         : null;
     if (!button) return;
     const icao = button.dataset.icao;
-    const index = liveAtcFeeds.findIndex((feed) => feed.icao === icao);
+    const index = liveAtcFeedsMap.get(icao) ?? -1;
     if (index < 0) return;
     setRadioFeedByIndex(index, { autoplay: true });
     $("radio-airport-modal")?.classList.remove("visible");
