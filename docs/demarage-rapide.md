@@ -1,6 +1,6 @@
-# Reprise Rapide
+# ![Plane](assets/plane.svg) Reprise rapide
 
-## Lancer le projet
+## ![Package](assets/package.svg) Lancer le projet
 
 Depuis la racine :
 
@@ -19,7 +19,7 @@ Options utiles :
 - `python3 main.py --port 8091`
 - `python3 main.py --debug`
 
-## Où regarder en premier
+## ![Code](assets/code.svg) Où regarder en premier
 
 - `main.py` : lanceur du projet.
 - `sources/server.py` : backend Flask, cache, OpenSky, météo, LiveATC.
@@ -27,7 +27,7 @@ Options utiles :
 - `sources/app.js` : logique principale du front.
 - `sources/client/` : fonctions front isolées et testables.
 
-## Dossiers importants
+## ![Package](assets/package.svg) Dossiers importants
 
 - `data/cache/` : cache disque OpenSky.
 - `data/atc/` : flux radio locaux (`.pls`) et `airport.json`.
@@ -35,13 +35,13 @@ Options utiles :
 - `docs/assets/` : images utilisées par la documentation.
 - `example/` : captures et mini tutoriels.
 
-## Pièges connus
+## ![Check](assets/check.svg) Attention
 
 - Sans identifiants OpenSky, le projet tourne en mode anonyme et rafraîchit moins souvent.
-- Le front dépend des routes Flask; si `sources/server.py` ne démarre pas, l'interface reste vide.
+- Le front dépend des routes Flask ; si `sources/server.py` ne démarre pas, l'interface reste vide.
 - Les flux radio locaux doivent être rangés par code ICAO dans `data/atc/<ICAO>/`.
 
-## Vérifications rapides
+## ![Globe](assets/globe.svg) Vérifications rapides
 
 - Ouvrir la page d'accueil.
 - Vérifier que le globe s'affiche.

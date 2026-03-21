@@ -1,13 +1,13 @@
-# Exemples
+# ![Users](../docs/assets/users.svg) Exemples
 
 Ce dossier sert de support de démonstration et de reprise.
 
-## Contenu
+## ![Check](../docs/assets/check.svg) Contenu
 
 - `screenshots/` : captures réelles du logiciel.
 - `tutorials/` : mini tutoriels par usage.
 
-## Tutoriels disponibles
+## ![Pencil](../docs/assets/pencil.svg) Tutoriels disponibles
 
 - `tutorials/01-globe-et-demarrage.md`
 - `tutorials/02-recherche-et-selection.md`

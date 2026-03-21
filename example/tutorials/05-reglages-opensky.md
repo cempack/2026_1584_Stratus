@@ -1,16 +1,16 @@
-# Réglages OpenSky
+# ![Pencil](../../docs/assets/pencil.svg) Réglages OpenSky
 
-## But
+## ![Plane](../../docs/assets/plane.svg) But
 
 Configurer des identifiants OpenSky.
 
-## Étapes
+## ![Pencil](../../docs/assets/pencil.svg) Étapes
 
 1. Ouvrir les réglages.
 2. Saisir `client_id` et `client_secret`.
 3. Enregistrer.
 
-## Résultat attendu
+## ![Check](../../docs/assets/check.svg) Résultat attendu
 
 - le formulaire répond sans erreur,
 - le backend enregistre les valeurs dans `.env`,

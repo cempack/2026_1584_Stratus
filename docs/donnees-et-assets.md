@@ -1,6 +1,6 @@
-# Données Et Assets
+# ![Orbit](assets/orbit.svg) Données et assets
 
-## Ce qui va dans `data/`
+## ![Package](assets/package.svg) Ce qui va dans `data/`
 
 Tout ce que l'application consomme au runtime sans être du code :
 
@@ -8,7 +8,7 @@ Tout ce que l'application consomme au runtime sans être du code :
 - `data/atc/` : données radio locales.
 - `data/assets/app/` : assets visuels utilisés par l'interface.
 
-## Ce qui ne va pas dans `data/`
+## ![Code](assets/code.svg) Ce qui ne va pas dans `data/`
 
 - le code applicatif,
 - les dépendances front embarquées,
@@ -16,7 +16,7 @@ Tout ce que l'application consomme au runtime sans être du code :
 
 Ces éléments restent dans `sources/`, `docs/` ou `example/`.
 
-## Ajouter un aéroport ATC
+## ![Pencil](assets/pencil.svg) Ajouter un aéroport ATC
 
 1. Créer `data/atc/<ICAO>/`.
 2. Ajouter `airport.json`.
@@ -35,14 +35,14 @@ Exemple de contenu minimal pour `airport.json` :
 }
 ```
 
-## Assets runtime actuels
+## ![Globe](assets/globe.svg) Assets runtime actuels
 
 - `logo.svg`
 - `aircraft-placeholder.svg`
 - `earth-blue-marble.jpg`
 - `earth-topology.png`
 
-## Règle pratique
+## ![Check](assets/check.svg) Règle pratique
 
 Si un fichier doit être servi à l'application en direct, il va dans `data/assets/app/`.
 

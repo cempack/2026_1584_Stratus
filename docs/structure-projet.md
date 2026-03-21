@@ -1,6 +1,6 @@
-# Structure Du Projet
+# ![Package](assets/package.svg) Structure du projet
 
-## Vue d'ensemble
+## ![Globe](assets/globe.svg) Vue d'ensemble
 
 Le projet est séparé en trois blocs :
 
@@ -8,7 +8,7 @@ Le projet est séparé en trois blocs :
 - `data/` : fichiers runtime.
 - `docs/` et `example/` : reprise, documentation et démonstration.
 
-## Code applicatif
+## ![Code](assets/code.svg) Code applicatif
 
 - `main.py` : point d'entrée conseillé.
 - `sources/server.py` : serveur Flask et API.
@@ -19,21 +19,21 @@ Le projet est séparé en trois blocs :
 - `sources/client/scan-state.mjs` : états de chargement et messages UI.
 - `sources/vendor/` : bibliothèques front embarquées.
 
-## Données et assets
+## ![Orbit](assets/orbit.svg) Données et assets
 
-- `data/assets/app/` : logo, textures du globe, placeholder image.
+- `data/assets/app/` : logo, textures du globe, image de remplacement.
 - `data/cache/opensky-cache.json.gz` : snapshot local des vols.
 - `data/atc/<ICAO>/airport.json` : métadonnées d'un aéroport radio.
 - `data/atc/<ICAO>/*.pls` : flux audio LiveATC locaux.
 
-## Documentation et exemples
+## ![Pencil](assets/pencil.svg) Documentation et exemples
 
 - `docs/` : documentation de reprise simple.
 - `docs/assets/` : icônes et images de documentation.
 - `example/screenshots/` : captures réelles du logiciel.
 - `example/tutorials/` : mini tutoriel par fonctionnalité.
 
-## Tests
+## ![Check](assets/check.svg) Tests
 
 - `tests/test_server.py` : backend Python.
 - `tests/*.test.mjs` : modules front testables sous Node.

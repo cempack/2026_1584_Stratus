@@ -1,6 +1,6 @@
-# Fonctionnalités
+# ![Globe](assets/globe.svg) Fonctionnalités
 
-## 1. Globe 3D
+## ![Globe](assets/globe.svg) 1. Globe 3D
 
 L'écran principal affiche les avions sur un globe 3D.
 
@@ -11,7 +11,7 @@ Ce bloc dépend surtout de :
 - `data/assets/app/earth-blue-marble.jpg`
 - `data/assets/app/earth-topology.png`
 
-## 2. Recherche radar
+## ![Plane](assets/plane.svg) 2. Recherche radar
 
 L'utilisateur peut chercher :
 
@@ -22,7 +22,7 @@ L'utilisateur peut chercher :
 
 La recherche est gérée côté front puis les détails viennent du backend.
 
-## 3. Fiche avion
+## ![Code](assets/code.svg) 3. Fiche avion
 
 Quand un avion est sélectionné, l'application affiche :
 
@@ -32,7 +32,7 @@ Quand un avion est sélectionné, l'application affiche :
 - météo locale,
 - photo si disponible.
 
-## 4. Radio ATC
+## ![Orbit](assets/orbit.svg) 4. Radio ATC
 
 Le widget radio charge une liste locale d'aéroports et de flux.
 
@@ -43,16 +43,16 @@ Chaque dossier d'aéroport contient :
 - un `airport.json`,
 - un ou plusieurs fichiers `.pls`.
 
-## 5. Réglages OpenSky
+## ![Pencil](assets/pencil.svg) 5. Réglages OpenSky
 
 L'interface permet d'enregistrer :
 
-- `client_id`
-- `client_secret`
+- `client_id`,
+- `client_secret`.
 
 Ces valeurs sont stockées dans `.env` à la racine.
 
-## 6. Cache local
+## ![Check](assets/check.svg) 6. Cache local
 
 Le backend garde une copie locale du dernier snapshot pour :
 
