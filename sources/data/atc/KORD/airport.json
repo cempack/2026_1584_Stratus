@@ -1,0 +1,15 @@
+{
+  "icao": "KORD",
+  "name": "Chicago O'Hare International Airport",
+  "city": "Chicago",
+  "country": "US",
+  "lat": 41.9786,
+  "lng": -87.9048,
+  "description": "Aéroport international de Chicago O'Hare.",
+  "order": [
+    "kord1n2_twr_ctr2.pls",
+    "kord1n2_gnd_out.pls",
+    "kord1n2_app_133625.pls",
+    "kord1n2_zau_cribb.pls"
+  ]
+}

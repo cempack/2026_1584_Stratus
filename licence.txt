@@ -1,0 +1,10 @@
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 juin 2007
+
+Copyright (C) 2026 Stratus
+
+Ce programme est un logiciel libre : vous pouvez le redistribuer et/ou le modifier sous les termes de la Licence publique générale GNU, soit la version 3 de la licence, soit (à votre discrétion) toute version ultérieure.
+
+Ce programme est distribué dans l'espoir qu'il sera utile, mais SANS AUCUNE GARANTIE ; sans même la garantie implicite de COMMERCIALISATION ou d'ADÉQUATION À UN BUT PARTICULIER. Voir la licence publique générale GNU pour plus de détails.
+
+Consultez <http://www.gnu.org/licenses/>.

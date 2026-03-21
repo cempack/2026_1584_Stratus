@@ -1,0 +1,15 @@
+{
+  "icao": "MMMX",
+  "name": "Benito Juarez International Airport",
+  "city": "Mexico City",
+  "country": "MX",
+  "lat": 19.436303,
+  "lng": -99.072098,
+  "description": "Aéroport international de Mexico Benito Juarez.",
+  "order": [
+    "mmmx1_twr.pls",
+    "mmmx1_app_final.pls",
+    "mmmx1_app.pls",
+    "mmmx1_ctr_n.pls"
+  ]
+}

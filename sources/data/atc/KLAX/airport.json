@@ -1,0 +1,15 @@
+{
+  "icao": "KLAX",
+  "name": "Los Angeles International Airport",
+  "city": "Los Angeles",
+  "country": "US",
+  "lat": 33.942501,
+  "lng": -118.407997,
+  "description": "Aéroport international de Los Angeles.",
+  "order": [
+    "klax_twr.pls",
+    "klax4.pls",
+    "klax4n_app_fin_n.pls",
+    "kpoc2_klax_app_east_feeder.pls"
+  ]
+}

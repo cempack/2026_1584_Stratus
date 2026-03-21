@@ -1,0 +1,15 @@
+{
+  "icao": "RJTT",
+  "name": "Tokyo Haneda International Airport",
+  "city": "Tokyo",
+  "country": "JP",
+  "lat": 35.549678,
+  "lng": 139.786958,
+  "description": "Aéroport international de Tokyo Haneda.",
+  "order": [
+    "rjtt_twr_tca.pls",
+    "rjtt_twr.pls",
+    "rjtt_app_dep.pls",
+    "rjtt_control.pls"
+  ]
+}

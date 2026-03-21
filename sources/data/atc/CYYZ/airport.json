@@ -1,0 +1,15 @@
+{
+  "icao": "CYYZ",
+  "name": "Toronto Pearson International Airport",
+  "city": "Toronto",
+  "country": "CA",
+  "lat": 43.675935,
+  "lng": -79.629421,
+  "description": "Aéroport international de Toronto Pearson.",
+  "order": [
+    "cyyz1_twr_north.pls",
+    "cyyz1_gnd_north.pls",
+    "cyyz1_gnd_south.pls",
+    "cyyz1_app_124475.pls"
+  ]
+}

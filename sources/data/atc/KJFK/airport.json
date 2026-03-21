@@ -1,0 +1,15 @@
+{
+  "icao": "KJFK",
+  "name": "John F. Kennedy International Airport",
+  "city": "New York",
+  "country": "US",
+  "lat": 40.639447,
+  "lng": -73.779317,
+  "description": "Aéroport international de New York John F. Kennedy.",
+  "order": [
+    "kjfk_twr_1191.pls",
+    "kjfk9_s.pls",
+    "kjfk9_app_camrn.pls",
+    "kjfk_dep.pls"
+  ]
+}
