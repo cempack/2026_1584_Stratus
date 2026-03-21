@@ -1,0 +1,10 @@
+{
+  "icao": "WSSS",
+  "name": "Singapore Changi Airport",
+  "city": "Singapore",
+  "country": "SG",
+  "lat": 1.35019,
+  "lng": 103.994003,
+  "description": "Aéroport international de Singapour Changi.",
+  "order": ["wsss3.pls"]
+}

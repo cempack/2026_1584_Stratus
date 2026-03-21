@@ -1,0 +1,15 @@
+{
+  "icao": "YSSY",
+  "name": "Sydney Kingsford Smith International Airport",
+  "city": "Sydney",
+  "country": "AU",
+  "lat": -33.946098,
+  "lng": 151.177002,
+  "description": "Aéroport international de Sydney Kingsford Smith.",
+  "order": [
+    "yssy1_twr.pls",
+    "yssy1_del_gnd.pls",
+    "yssy1_dir_e.pls",
+    "yssy1_atis1.pls"
+  ]
+}

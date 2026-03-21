@@ -29,6 +29,13 @@ import requests
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SOURCES_DIR = PROJECT_ROOT / "sources"
+DATA_DIR = PROJECT_ROOT / "data"
+APP_ASSETS_DIR = DATA_DIR / "assets" / "app"
+DEFAULT_HOST = "0.0.0.0"
+DEFAULT_PORT = 8090
+
 OPENSKY_STATES_URL = "https://opensky-network.org/api/states/all"
 OPENSKY_TOKEN_URL = (
     "https://auth.opensky-network.org/auth/realms/opensky-network/"
@@ -39,7 +46,7 @@ ADSBDB_AIRCRAFT_URL = "https://api.adsbdb.com/v0/aircraft/{hex_id}"
 ADSBDB_CALLSIGN_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
 LIVEATC_SEARCH_URL = "https://www.liveatc.net/search/"
 LIVEATC_STREAM_BASE_URL = "https://d.liveatc.net"
-RADIO_FEEDS_DIR = Path(__file__).resolve().parent / "data" / "atc"
+RADIO_FEEDS_DIR = DATA_DIR / "atc"
 AIRPORT_CONFIG_FILENAME = "airport.json"
 LIVEATC_DISABLED_FEED_IDS = {
     # Verified on 2026-03-18: pages were blank or their LiveATC redirect returned 404.
@@ -104,13 +111,13 @@ MAX_RESPONSE_PLANES = 20_000
 PHOTO_CACHE_TTL = 12 * 60 * 60
 JSON_GZIP_MIN_BYTES = 2_048
 TOKEN_REFRESH_MARGIN = 30
-CACHE_DIR = Path("data/cache")
+CACHE_DIR = DATA_DIR / "cache"
 CACHE_SNAPSHOT_PATH = CACHE_DIR / "opensky-cache.json.gz"
 CACHE_SCHEMA_VERSION = 1
 CACHE_PERSIST_INTERVAL = 12.0
 CACHE_MIN_WRITE_INTERVAL = 8.0
 CACHE_MAX_RESTORE_AGE = 45 * 60
-ROOT_ENV_PATH = Path(".env")
+ROOT_ENV_PATH = PROJECT_ROOT / ".env"
 PROCESS_STARTED_AT = time.time()
 FULL_WORLD_CREDITS = 4
 
@@ -225,7 +232,7 @@ liveatc_lock = threading.Lock()
 ourairports_cache = {"airports_by_icao": {}, "fetched_at": 0.0}
 ourairports_lock = threading.Lock()
 
-app = Flask(__name__, static_folder=".", static_url_path="")
+app = Flask(__name__, static_folder=str(SOURCES_DIR), static_url_path="")
 
 
 def clamp(value, minimum, maximum):
@@ -429,7 +436,7 @@ def extract_icao_from_live_audio_label(label_text, stream_url):
         return match.group(1)
     path_token = (stream_url or "").split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1]
     match = re.match(r"([a-zA-Z]{4})", path_token)
-    if match:
+    if match and path_token.lower() not in {"redir", "audio", "archive"}:
         return match.group(1).upper()
     match = re.match(r"([A-Z]{4})\b", label)
     if match:
@@ -914,7 +921,7 @@ def sanitize_env_value(value):
     if value is None:
         return None
     cleaned = value.strip().strip("\"'`")
-    cleaned = cleaned.rstrip("»").strip()
+    cleaned = cleaned.rstrip("»`").strip()
     return cleaned or None
 
 
@@ -2457,7 +2464,7 @@ def ensure_pollers():
 
 @app.route("/")
 def index():
-    return send_from_directory(".", "index.html")
+    return send_from_directory(SOURCES_DIR, "index.html")
 
 
 @app.route("/api/flights")
@@ -2697,16 +2704,20 @@ def api_weather_map():
         return jsonify({"error": str(exc), "points": []}), 500
 
 
+def run_server(host=DEFAULT_HOST, port=DEFAULT_PORT, debug=False, announce=True):
+    if announce:
+        print("=" * 50)
+        print("  Stratus -- Starting OpenSky server")
+        print("=" * 50)
+    start_pollers()
+    if announce:
+        print("[Stratus] OpenSky /states/all poller started")
+        print(f"[Stratus] Open http://localhost:{port}")
+    app.run(host=host, port=port, debug=debug, threaded=True, use_reloader=False)
+
+
 atexit.register(lambda: persist_cache_snapshot(force=True))
 
 
 if __name__ == "__main__":
-    print("=" * 50)
-    print("  Stratus -- Starting OpenSky server")
-    print("=" * 50)
-
-    start_pollers()
-    print("[Stratus] OpenSky /states/all poller started")
-    print("[Stratus] Open http://localhost:8090")
-
-    app.run(host="0.0.0.0", port=8090, debug=False, threaded=True)
+    run_server()

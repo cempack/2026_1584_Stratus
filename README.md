@@ -1,100 +1,41 @@
-# Stratus
+<div align="center">
+<img src="docs/assets/logo.jpg" alt="Stratus" width="160" />
+<h1>Stratus</h1>
+<p><strong>Suivi aérien en temps réel sur globe 3D</strong></p>
+<p>OpenSky · Flask · JavaScript</p>
+</div>
 
-Stratus est une interface de suivi aérien en temps réel basée sur OpenSky.
-Le projet affiche les appareils sur un globe 3D, permet de rechercher un vol,
-une immatriculation, un hex ICAO ou un pays, et enrichit la sélection avec des
-informations météo et média.
+## Aperçu
 
-## Prérequis
+Stratus affiche les avions sur un globe 3D et ajoute autour de cette vue :
 
-- Python 3.10 ou plus récent
-- `pip`
+- une recherche radar,
+- une fiche avion détaillée,
+- une couche météo,
+- un répertoire radio ATC,
+- des réglages OpenSky.
 
-## Installation
+## Lancement
+
+Depuis la racine :
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python3 main.py
 ```
 
-## Lancer le projet
-
-```bash
-source .venv/bin/activate
-python3 sources/server.py
-```
-
-Le serveur démarre sur [http://localhost:8090](http://localhost:8090).
-
-## Catalogue radio local
-
-Les flux ATC sont maintenant rangés par aéroport dans `sources/data/atc/`.
-Chaque aéroport a son propre dossier avec :
-
-- un `airport.json` pour les informations de base ;
-- un ou plusieurs fichiers `.pls` téléchargés depuis LiveATC.
-
-Exemple :
-
-```text
-sources/data/atc/
-  KJFK/
-    airport.json
-    kjfk_twr_1191.pls
-    kjfk9_s.pls
-  KSFO/
-    airport.json
-    ksfo_twr.pls
-```
-
-### Ajouter un nouveau flux
-
-Pour un aéroport déjà présent :
-
-1. téléchargez le fichier `.pls` voulu depuis LiveATC ;
-2. placez-le dans `sources/data/atc/<ICAO>/` ;
-3. rechargez l'application.
-
-Pour un nouvel aéroport :
-
-1. créez un dossier `sources/data/atc/<ICAO>/` ;
-2. ajoutez-y les fichiers `.pls` ;
-3. créez un `airport.json` avec les métadonnées ;
-4. rechargez l'application.
-
-Exemple de `airport.json` :
-
-```json
-{
-  "icao": "KSFO",
-  "name": "San Francisco International Airport",
-  "city": "San Francisco",
-  "country": "US",
-  "lat": 37.619806,
-  "lng": -122.374821,
-  "description": "Aéroport international de San Francisco.",
-  "order": ["ksfo_twr.pls", "ksfo_gnd2.pls", "ksfo_app2.pls"]
-}
-```
-
-Notes :
-
-- `order` est optionnel, mais pratique pour afficher les flux dans le bon ordre ;
-- le titre affiché dans l'interface vient directement du contenu du fichier `.pls` ;
-- si vous ajoutez seulement un `.pls` a un dossier existant, il sera disponible sans autre configuration.
+Le lanceur fonctionne aussi avec `python3 main.py --no-browser`.
 
 ## Configuration OpenSky
 
-**Il est fortement recommandé d’ajouter une clé API (gratuite).** Sans identifiants, le
-projet tourne en mode anonyme (plus limité) et le bon fonctionnement de
-l’application n’est pas garanti. Pour obtenir des identifiants et en savoir
-plus : [OpenSky Network](https://opensky-network.org/).
+Le projet peut tourner sans identifiants, mais le mode authentifié est recommandé.
 
-Configuration possible :
+Les identifiants peuvent être ajoutés :
 
-- depuis l’interface via le bouton de réglages ;
-- ou dans un fichier `.env` à la racine du projet.
+- depuis l'interface,
+- ou via `.env` à la racine.
 
 Exemple :
 
@@ -103,11 +44,53 @@ OPENSKY_CLIENT_ID=your_client_id
 OPENSKY_CLIENT_SECRET=your_client_secret
 ```
 
-## Structure
+## Captures
 
-- `sources/server.py` : API Flask et agrégation des données OpenSky / météo
-- `sources/app.js` : logique du globe, rendu client et interactions
-- `sources/index.html` : structure et styles de l'interface
-- `sources/data/atc/` : catalogue local des flux ATC, un dossier par aéroport
-- `sources/assets/` : ressources statiques
-- `sources/vendor/` : dépendances front embarquées
+### Vue d'ensemble
+
+![Vue d'ensemble](example/screenshots/globe-overview.png)
+
+### Recherche radar
+
+![Recherche radar](example/screenshots/recherche-radar.png)
+
+### Fiche avion
+
+![Fiche avion](example/screenshots/fiche-avion.png)
+
+### Radio ATC
+
+![Radio ATC](example/screenshots/radio-atc.png)
+
+### Réglages OpenSky
+
+![Réglages OpenSky](example/screenshots/reglages-opensky.png)
+
+## Structure rapide
+
+| Chemin | Rôle |
+| :-- | :-- |
+| `main.py` | point d'entrée conseillé |
+| `sources/` | code de l'application |
+| `data/assets/app/` | assets runtime |
+| `data/cache/` | cache OpenSky |
+| `data/atc/` | fichiers radio ATC |
+| `docs/` | documentation de reprise |
+| `example/` | captures et tutoriels |
+
+## Documentation
+
+- [docs/reprise-rapide.md](docs/reprise-rapide.md)
+- [docs/structure-projet.md](docs/structure-projet.md)
+- [docs/fonctionnalites.md](docs/fonctionnalites.md)
+- [docs/donnees-et-assets.md](docs/donnees-et-assets.md)
+- [presentation.md](presentation.md)
+
+## Exemples
+
+- [example/README.md](example/README.md)
+- [example/tutorials/01-globe-et-demarrage.md](example/tutorials/01-globe-et-demarrage.md)
+- [example/tutorials/02-recherche-et-selection.md](example/tutorials/02-recherche-et-selection.md)
+- [example/tutorials/03-fiche-avion.md](example/tutorials/03-fiche-avion.md)
+- [example/tutorials/04-radio-atc.md](example/tutorials/04-radio-atc.md)
+- [example/tutorials/05-reglages-opensky.md](example/tutorials/05-reglages-opensky.md)

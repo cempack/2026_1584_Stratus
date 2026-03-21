@@ -1,0 +1,10 @@
+{
+  "icao": "KSFO",
+  "name": "San Francisco International Airport",
+  "city": "San Francisco",
+  "country": "US",
+  "lat": 37.619806,
+  "lng": -122.374821,
+  "description": "Aéroport international de San Francisco.",
+  "order": ["ksfo_twr.pls", "ksfo_gnd2.pls", "ksfo_app2.pls", "zoa_sfo.pls"]
+}

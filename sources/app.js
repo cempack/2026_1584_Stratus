@@ -3621,7 +3621,7 @@ async function main() {
     const setupCopy = document.createElement("div");
     setupCopy.className = "radio-guide-intro__copy";
     setupCopy.innerHTML =
-      "Pour ajouter un flux, posez un fichier <code>.pls</code> dans <code>sources/data/atc/&lt;ICAO&gt;/</code>. Pour un nouvel aeroport, ajoutez aussi un petit <code>airport.json</code> dans ce dossier.";
+      "Pour ajouter un flux, posez un fichier <code>.pls</code> dans <code>data/atc/&lt;ICAO&gt;/</code>. Pour un nouvel aeroport, ajoutez aussi un petit <code>airport.json</code> dans ce dossier.";
     intro.appendChild(setupCopy);
     fragment.appendChild(intro);
 

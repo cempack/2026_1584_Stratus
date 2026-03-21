@@ -1,0 +1,15 @@
+{
+  "icao": "EHAM",
+  "name": "Amsterdam Airport Schiphol",
+  "city": "Amsterdam",
+  "country": "NL",
+  "lat": 52.308601,
+  "lng": 4.76389,
+  "description": "Aéroport international d'Amsterdam Schiphol",
+  "order": [
+    "eham_twr_18r36l.pls",
+    "eham_del.pls",
+    "eham_app_118080.pls",
+    "eham_rdr_120555.pls"
+  ]
+}
