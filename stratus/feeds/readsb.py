@@ -15,6 +15,8 @@ MAX_RADIUS_NM = 250.0
 AREA_FRESH_S = 4.0
 HEX_FRESH_S = 2.0
 MAX_QUEUE_WAIT_S = 3.0
+MAX_POS_AGE_S = 60.0  # a position older than this is not a fix: never merge it
+RATE_LIMIT_COOLDOWN_S = 60.0
 
 
 class Provider:
@@ -23,6 +25,7 @@ class Provider:
         self.point_url = point_url
         self.hex_url = hex_url
         self.limiter = RateLimiter(1.0)
+        self.cooldown_until = 0.0
         self.state = "ok"
         self.last_ok: float | None = None
         self.last_error: str | None = None
@@ -53,6 +56,8 @@ def parse_readsb(payload: dict, src: str) -> list[Obs]:
         if lat is None and isinstance(a.get("lastPosition"), dict):
             lp = a["lastPosition"]
             lat, lon, seen = num(lp.get("lat")), num(lp.get("lon")), num(lp.get("seen_pos"))
+        if lat is not None and (lon is None or (seen or 0.0) > MAX_POS_AGE_S):
+            lat = lon = None  # stale or half a position: keep the metadata, drop the fix
         baro = a.get("alt_baro")
         gnd = baro == "ground"
         alt = None if gnd else iround(num(baro) if num(baro) is not None else num(a.get("alt_geom")))
@@ -68,6 +73,7 @@ def parse_readsb(payload: dict, src: str) -> list[Obs]:
             trk=None if trk is None else trk % 360, vr=iround(vr), gnd=gnd, src=src,
             cs=norm_callsign(a.get("flight")), type=(a.get("t") or None), reg=(a.get("r") or None),
             cat=(a.get("category") or None), sqk=(a.get("squawk") or None), pos_type=(a.get("type") or None),
+            rc=num(a.get("rc")),
         ))
     return out
 
@@ -98,6 +104,29 @@ class ReadsbFeed:
                 prov.state, prov.last_error = "degraded", str(exc)[:300]
                 log.info("%s %s failed: %s", prov.name, kind, exc)
         return None
+
+    def fetch_point_from(self, prov: Provider, lat: float, lon: float, r: float, max_wait: float = 0.5):
+        """One circle from one specific provider, for the background sweep. None when the provider is cooling
+        down, busy serving viewers (rate-limit slot too far away) or failed; never raises."""
+        now = self.clock()
+        if now < prov.cooldown_until or not prov.limiter.acquire(max_wait):
+            return None
+        url = prov.point_url.format(lat=round(lat, 3), lon=round(lon, 3), r=int(r))
+        try:
+            resp = self.http.get(url, timeout=(5, 10))
+            if resp.status_code == 429:
+                prov.cooldown_until = now + RATE_LIMIT_COOLDOWN_S
+                prov.state, prov.last_error = "rate_limited", "429"
+                return None
+            resp.raise_for_status()
+            obs = parse_readsb(resp.json(), prov.name)
+            prov.state, prov.last_ok, prov.last_error = "ok", self.clock(), None
+            return obs
+        except Exception as exc:
+            prov.cooldown_until = now + 10.0
+            prov.state, prov.last_error = "degraded", str(exc)[:300]
+            log.info("%s sweep failed: %s", prov.name, exc)
+            return None
 
     def _covered(self, lat: float, lon: float, r: float, now: float) -> bool:
         with self._lock:

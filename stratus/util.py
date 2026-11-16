@@ -9,6 +9,7 @@ import os
 import tempfile
 import threading
 import time
+from datetime import datetime, timezone
 from collections import OrderedDict
 from concurrent.futures import Future
 from pathlib import Path
@@ -42,6 +43,41 @@ def haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dl = math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * EARTH_RADIUS_NM * math.asin(min(1.0, math.sqrt(a)))
+
+
+def bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Initial great-circle bearing from point 1 to point 2, degrees true 0..360."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
+
+
+def destination_point(lat: float, lon: float, bearing: float, dist_nm: float) -> tuple[float, float]:
+    """Point reached from (lat, lon) after dist_nm along the great circle with the given initial bearing."""
+    d = dist_nm / EARTH_RADIUS_NM
+    b = math.radians(bearing)
+    p1, l1 = math.radians(lat), math.radians(lon)
+    p2 = math.asin(math.sin(p1) * math.cos(d) + math.cos(p1) * math.sin(d) * math.cos(b))
+    l2 = l1 + math.atan2(math.sin(b) * math.sin(d) * math.cos(p1), math.cos(d) - math.sin(p1) * math.sin(p2))
+    return math.degrees(p2), (math.degrees(l2) + 540.0) % 360.0 - 180.0
+
+
+def angle_diff(a: float, b: float) -> float:
+    """Smallest absolute difference between two bearings, 0..180."""
+    return abs((a - b + 180.0) % 360.0 - 180.0)
+
+
+def parse_iso(value: Any) -> float | None:
+    """ISO 8601 UTC timestamp ('2026-11-16T10:00:00Z') -> epoch seconds."""
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        dt = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).timestamp()
 
 
 def num(value: Any) -> float | None:

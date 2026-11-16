@@ -22,8 +22,9 @@ class FakeClock:
 
 
 class FakeResp:
-    def __init__(self, body=None, status: int = 200, headers: dict | None = None):
+    def __init__(self, body=None, status: int = 200, headers: dict | None = None, text: str | None = None):
         self.body = body
+        self.text = text
         self.status_code = status
         self.headers = headers or {}
 
