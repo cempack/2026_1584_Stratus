@@ -27,7 +27,24 @@ export class Radar {
   private theme: Theme = "light";
   private userPaused = false;
 
+  private errors: number[] = [];
+  private backoffUntil = 0;
+
   constructor(private map: maplibregl.Map) {
+    // RainViewer rate-limits per viewer IP (~500 tiles/min). On repeated tile errors, stop animating and back off
+    // instead of letting every frame swap re-request failing tiles (that turned into a request storm).
+    map.on("error", (e) => {
+      const sid = (e as { sourceId?: string }).sourceId;
+      if (!sid?.startsWith("radar-")) return;
+      const now = Date.now();
+      this.errors = this.errors.filter((t) => now - t < 10_000); this.errors.push(now);
+      if (this.errors.length >= 4 && now >= this.backoffUntil) {
+        this.backoffUntil = now + 120_000; this.errors = [];
+        this.clearTimer();
+        for (let i = 0; i < this.frames.length; i++) if (i !== this.idx && map.getLayer(this.id(i))) map.setLayoutProperty(this.id(i), "visibility", "none");
+        setTimeout(() => this.schedule(), 120_000);
+      }
+    });
     document.addEventListener("visibilitychange", () => { if (document.hidden) this.clearTimer(); else this.schedule(); });
   }
 
@@ -38,12 +55,16 @@ export class Radar {
     this.host = j.host;
     const past = (j.radar.past ?? []).map((f) => ({ ...f, forecast: false }));
     const next = (j.radar.nowcast ?? []).map((f) => ({ ...f, forecast: true }));
-    const all = [...past, ...next];
+    const all = [...past.slice(-8), ...next];
     if (!all.length) throw new Error("no frames");
     return all;
   }
 
-  private url(f: Frame) { return `${this.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`; }
+  // 512 px tiles: 4x fewer requests than 256 (RainViewer allows ~500 tiles/min per IP).
+  private url(f: Frame) { return `${this.host}${f.path}/512/{z}/{x}/{y}/2/1_1.png`; }
+  private next(i: number) { return i >= this.frames.length - 1 ? 0 : i + 1; }
+  /** Only the shown frame and the next one (preload) fetch tiles; hidden layers request nothing. */
+  private vis(i: number): "visible" | "none" { return i === this.idx || i === this.next(this.idx) ? "visible" : "none"; }
   private id(i: number) { return `radar-${i}`; }
 
   /** Returns false when the radar could not be loaded. */
@@ -91,8 +112,8 @@ export class Radar {
     if (!this.enabled || !this.frames.length || m.getSource(this.id(0))) return;
     const before = m.getLayer("border-state") ? "border-state" : undefined;
     this.frames.forEach((f, i) => {
-      m.addSource(this.id(i), { type: "raster", tiles: [this.url(f)], tileSize: 256, maxzoom: 7, attribution: '<a href="https://www.rainviewer.com">RainViewer</a>' });
-      m.addLayer({ id: this.id(i), type: "raster", source: this.id(i),
+      m.addSource(this.id(i), { type: "raster", tiles: [this.url(f)], tileSize: 512, maxzoom: 6, attribution: '<a href="https://www.rainviewer.com">RainViewer</a>' });
+      m.addLayer({ id: this.id(i), type: "raster", source: this.id(i), layout: { visibility: this.vis(i) },
         paint: { "raster-opacity": i === this.idx ? OPACITY[theme] : 0, "raster-opacity-transition": { duration: FADE_MS, delay: 0 }, "raster-fade-duration": 0, "raster-resampling": "linear" } }, before);
     });
   }
@@ -113,7 +134,11 @@ export class Radar {
     const prev = this.idx;
     this.idx = i;
     if (m.getLayer(this.id(prev))) m.setPaintProperty(this.id(prev), "raster-opacity", 0);
-    if (m.getLayer(this.id(i))) m.setPaintProperty(this.id(i), "raster-opacity", OPACITY[this.theme]);
+    if (m.getLayer(this.id(i))) { m.setLayoutProperty(this.id(i), "visibility", "visible"); m.setPaintProperty(this.id(i), "raster-opacity", OPACITY[this.theme]); }
+    const nx = this.id(this.next(i));
+    if (m.getLayer(nx)) m.setLayoutProperty(nx, "visibility", "visible");
+    // Hide the old frame once its fade-out is done, so it stops holding tiles.
+    setTimeout(() => { if (prev !== this.idx && prev !== this.next(this.idx) && m.getLayer(this.id(prev))) m.setLayoutProperty(this.id(prev), "visibility", "none"); }, FADE_MS + 50);
     this.emit();
   }
 
@@ -131,10 +156,13 @@ export class Radar {
   private clearTimer() { clearTimeout(this.timer); this.timer = undefined; }
   private schedule() {
     this.clearTimer();
-    if (!this.playing || !this.enabled || document.hidden || this.frames.length < 2) return;
+    if (!this.playing || !this.enabled || document.hidden || this.frames.length < 2 || Date.now() < this.backoffUntil) return;
     const last = this.idx >= this.frames.length - 1;
     this.timer = setTimeout(() => {
-      this.show(this.idx >= this.frames.length - 1 ? 0 : this.idx + 1);
+      const n = this.next(this.idx);
+      // Only advance once the next frame's tiles are in; otherwise wait and check again (no flashing, no storms).
+      if (this.map.getSource(this.id(n)) && !this.map.isSourceLoaded(this.id(n))) { this.timer = undefined; setTimeout(() => this.schedule(), 400); return; }
+      this.show(n);
       this.schedule();
     }, last ? HOLD_MS : STEP_MS);
   }
