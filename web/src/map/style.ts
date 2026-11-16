@@ -32,7 +32,7 @@ export function buildStyle(theme: Theme): StyleSpecification {
     { id: "border-state", type: "line", ...src, "source-layer": "boundary", minzoom: 4, filter: ["all", ["==", ["get", "admin_level"], 4], ["!=", ["get", "maritime"], 1]], paint: { "line-color": c.borderState, "line-width": 0.75, "line-dasharray": [2, 2] } },
     { id: "border-country", type: "line", ...src, "source-layer": "boundary", filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]], paint: { "line-color": c.border, "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.6, 8, 1.4] } },
     { id: "airport-label", type: "symbol", ...src, "source-layer": "aerodrome_label", minzoom: 8, filter: ["has", "iata"],
-      layout: { "text-field": ["concat", ["get", "iata"], ["case", [">=", ["zoom"], 11], ["concat", " · ", name], ""]], "text-font": ["Noto Sans Regular"], "text-size": 11 },
+      layout: { "text-field": ["step", ["zoom"], ["get", "iata"], 11, ["concat", ["get", "iata"], " · ", name]], "text-font": ["Noto Sans Regular"], "text-size": 11 },
       paint: { "text-color": c.label, "text-halo-color": c.halo, "text-halo-width": 1.2 } },
     { id: "place-city", type: "symbol", ...src, "source-layer": "place", minzoom: 4, filter: ["in", ["get", "class"], ["literal", ["city", "town"]]],
       layout: { "text-field": name, "text-font": ["Noto Sans Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 4, 10, 10, 14], "text-max-width": 8,
