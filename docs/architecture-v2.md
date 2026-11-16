@@ -100,14 +100,14 @@ Selected-plane detail. Refreshes the plane from adsb.lol `/v2/hex` (cached 2 s).
   "trail": [[lat, lon, alt_ft_or_null, ts], ...],
   "aircraft": { "registration":"D-AIZB","type":"A320","type_name":"Airbus A320-214","manufacturer":"Airbus",
                 "operator":"Lufthansa","operator_icao":"DLH","owner":"..","country":"Germany" } | null,
-  "route": { "callsign":"DLH4AB","airline":"Lufthansa",
+  "route": { "callsign":"DLH4AB","airline":"Lufthansa","airline_iata":"LH","airline_icao":"DLH",
              "origin": {"icao":"EDDM","iata":"MUC","name":"..","city":"..","country":"..","lat":..,"lon":..},
              "destination": {...},
              "plausible": true } | null,
   "photo": { "thumb":"https://..","large":"https://..","photographer":"..","link":"https://www.planespotters.net/.." } | null
 }
 ```
-`route.plausible` is false when the plane's position is far off the great circle between origin and destination
+`airline_iata`/`airline_icao` (optional, may be null) feed the airline logo. `route.plausible` is false when the plane's position is far off the great circle between origin and destination
 (adsbdb routes are often stale); the UI then shows the route as unconfirmed.
 `aircraft`, `route`, `photo` may arrive as `null` on the first call while lookups run in the background; the frontend
 polls this endpoint every 3 s while a plane is selected, so they fill in.

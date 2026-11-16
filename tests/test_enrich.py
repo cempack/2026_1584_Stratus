@@ -42,9 +42,9 @@ def test_parse_adsbdb_aircraft_route_and_photo():
 
     ap = {"icao_code": "EDDM", "iata_code": "MUC", "name": "Munich", "municipality": "Munich",
           "country_name": "Germany", "latitude": 48.35, "longitude": 11.78}
-    r = parse_route({"response": {"flightroute": {"callsign": "DLH4AB", "airline": {"name": "Lufthansa"},
+    r = parse_route({"response": {"flightroute": {"callsign": "DLH4AB", "airline": {"name": "Lufthansa", "iata": "LH", "icao": "DLH"},
                                                   "origin": ap, "destination": {**ap, "icao_code": "LFPG"}}}})
-    assert r["airline"] == "Lufthansa" and r["origin"]["icao"] == "EDDM" and r["destination"]["lat"] == 48.35
+    assert r["airline"] == "Lufthansa" and r["airline_iata"] == "LH" and r["airline_icao"] == "DLH" and r["origin"]["icao"] == "EDDM" and r["destination"]["lat"] == 48.35
     assert parse_route({"response": "unknown callsign"}) is None
 
     p = parse_photo({"photos": [{"thumbnail": {"src": "t"}, "thumbnail_large": {"src": "l"},

@@ -59,6 +59,7 @@ def parse_route(body: dict) -> dict | None:
         return None
     airline = r.get("airline") if isinstance(r.get("airline"), dict) else {}
     return {"callsign": norm_callsign(r.get("callsign")), "airline": _s(airline.get("name")),
+            "airline_iata": _s(airline.get("iata")), "airline_icao": _s(airline.get("icao")),
             "origin": origin, "destination": dest}
 
 
