@@ -592,6 +592,12 @@ dt { font-size: 12px; color: var(--ink-3); }
   .eta { margin-top: 8px; }
 }
 @media (max-width: 719px) and (max-height: 520px) { .hero { display: none; } }
+/* phones: menus never run under the collapsed sheet */
+@media (max-width: 719px) {
+  body.dock-open .menu { max-height: calc(100dvh - var(--peek) - 2 * var(--gut) - 44px - 8px - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  body.dock-open .atc { bottom: calc(var(--peek) + 12px + env(safe-area-inset-bottom)); }
+}
+.rpill:not([hidden]) .rpill-main { animation: mini-in 320ms var(--ease) both; }
 /* the "from" slider of the altitude filter fills toward the right (the kept range is above the thumb) */
 #f-alt-min::-webkit-slider-runnable-track { background: linear-gradient(90deg, var(--surface-3) var(--v), var(--accent) var(--v)); }
 #f-alt-min::-moz-range-track { background: linear-gradient(90deg, var(--surface-3) var(--v), var(--accent) var(--v)); }
