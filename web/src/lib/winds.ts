@@ -62,8 +62,8 @@ export function advance(lat: number, lon: number, u: number, v: number, degPerPx
 
 /** Number of particles for a canvas: sparse on purpose (light streaks, not a screensaver). */
 export function particleCount(w: number, h: number, phone: boolean): number {
-  const n = Math.round((w * h) / (phone ? 1800 : 1300));
-  return Math.max(200, Math.min(phone ? 1100 : 2200, n));
+  const n = Math.round((w * h) / (phone ? 2400 : 1800));
+  return Math.max(200, Math.min(phone ? 900 : 1500, n));
 }
 
 export const WIND_LEVELS: { id: string; label: string; hint: string }[] = [

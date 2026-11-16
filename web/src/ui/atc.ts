@@ -13,6 +13,7 @@ import { norm } from "../lib/core";
 import { KIND_ICON, Meter, chipLabels, feedKind, parseFreq } from "../lib/radio";
 import { icon } from "./icons";
 import { closeOthers, registerPopover } from "./popovers";
+import { hide, show, shown } from "./motion";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const store = {
@@ -138,7 +139,7 @@ export class Atc {
     window.addEventListener("resize", () => this.draw());
   }
 
-  get isOpen() { return !$("atc").hidden; }
+  get isOpen() { return shown($("atc")); }
   get isLive() { return this.st === "connecting" || this.st === "live" || this.st === "buffering"; }
 
   // ----- catalogue -----
@@ -162,7 +163,7 @@ export class Atc {
 
   open(icao?: string) {
     closeOthers($("atc"));
-    $("atc").hidden = false;
+    show($("atc"));
     $("btn-atc").setAttribute("aria-pressed", "true");
     this.hooks.onToggle(true);
     this.renderAll();
@@ -173,7 +174,7 @@ export class Atc {
   }
 
   close() {
-    $("atc").hidden = true;
+    hide($("atc"));
     $("btn-atc").setAttribute("aria-pressed", "false");
     this.hooks.onToggle(false);
     this.renderAll();

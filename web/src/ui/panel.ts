@@ -11,6 +11,7 @@ import { serverNow } from "../api";
 import { type Track, distanceNm, fmtAgo, fmtAltM, fmtInt, fmtSpeedKmh, fmtTrack, fmtVr, renderPos } from "../lib/core";
 import { sparkline } from "../lib/spark";
 import { Sheet } from "./sheet";
+import { swap } from "./motion";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const text = (id: string, v: string) => { const el = $(id); if (el.textContent !== v) el.textContent = v; };
@@ -80,6 +81,7 @@ export class Panel {
     $("p-est").hidden = true;
     text("r-src", "");
     this.sheet.set(false);
+    if ($("panel").dataset.open === "1") swap($("panel-scroll"));
     $("panel").dataset.open = "1";
     $("panel").setAttribute("aria-hidden", "false");
     text("p-cs", t?.cs ?? hex.toUpperCase());

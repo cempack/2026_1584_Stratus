@@ -4,6 +4,7 @@ import { fmtInt } from "../lib/core";
 import { type LayerPrefs, parsePrefs } from "../lib/prefs";
 import { WIND_LEVELS } from "../lib/winds";
 import { closeOthers, registerPopover } from "./popovers";
+import { hide, show, shown } from "./motion";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const get = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -61,10 +62,10 @@ export class LayersMenu {
     this.initFilters();
   }
 
-  get isOpen() { return !this.menu.hidden; }
+  get isOpen() { return shown(this.menu); }
   get state(): { prefs: LayerPrefs; filters: Filters } { return { prefs: this.prefs, filters: this.filters }; }
-  open() { closeOthers(this.menu); this.menu.hidden = false; this.btn.setAttribute("aria-expanded", "true"); }
-  close() { this.menu.hidden = true; this.btn.setAttribute("aria-expanded", "false"); }
+  open() { closeOthers(this.menu); show(this.menu); this.btn.setAttribute("aria-expanded", "true"); }
+  close() { hide(this.menu); this.btn.setAttribute("aria-expanded", "false"); }
   toggle() { this.isOpen ? this.close() : this.open(); }
 
   /** Change a preference (from the UI or, e.g., when the radar could not load). */

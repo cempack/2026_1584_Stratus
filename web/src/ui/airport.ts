@@ -6,6 +6,7 @@ import {
   CATEGORY_HINT, PHASE_LABEL, categoryOf, ceilingText, cloudsText, fmtEta, qnhText, runwayText, tempText, visibilityText, windText,
 } from "../lib/airport";
 import { Sheet } from "./sheet";
+import { swap } from "./motion";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const text = (id: string, v: string) => { const el = $(id); if (el.textContent !== v) el.textContent = v; };
@@ -68,6 +69,7 @@ export class AirportPanel {
       $("apanel-scroll").scrollTop = 0;
     }
     this.sheet.set(false);
+    if ($("apanel").dataset.open === "1") swap($("apanel-scroll"));
     $("apanel").dataset.open = "1";
     $("apanel").setAttribute("aria-hidden", "false");
   }

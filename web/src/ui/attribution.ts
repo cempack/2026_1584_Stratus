@@ -1,6 +1,7 @@
 // "i" button: data credits, listed only for what is actually on the map.
 import { type CreditOpts, credits } from "../lib/attribution";
 import { closeOthers, registerPopover } from "./popovers";
+import { hide, show, shown } from "./motion";
 
 export class Credits {
   private pop = document.getElementById("credits") as HTMLElement;
@@ -8,8 +9,8 @@ export class Credits {
   private list = document.getElementById("credits-list") as HTMLUListElement;
 
   constructor(private current: () => CreditOpts) {
-    registerPopover({ el: this.pop, trigger: this.btn, isOpen: () => !this.pop.hidden, close: () => this.close(), outside: true });
-    this.btn.addEventListener("click", () => (this.pop.hidden ? this.open() : this.close()));
+    registerPopover({ el: this.pop, trigger: this.btn, isOpen: () => shown(this.pop), close: () => this.close(), outside: true });
+    this.btn.addEventListener("click", () => (shown(this.pop) ? this.close() : this.open()));
     this.pop.querySelector("[data-close]")!.addEventListener("click", () => this.close());
   }
 
@@ -25,9 +26,9 @@ export class Credits {
       li.append(a);
       return li;
     }));
-    this.pop.hidden = false;
+    show(this.pop);
     this.btn.setAttribute("aria-expanded", "true");
   }
 
-  close() { this.pop.hidden = true; this.btn.setAttribute("aria-expanded", "false"); }
+  close() { hide(this.pop); this.btn.setAttribute("aria-expanded", "false"); }
 }

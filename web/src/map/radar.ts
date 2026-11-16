@@ -34,7 +34,10 @@ const BACKOFF_MS = 120_000;
 const UNDER = ["runway", "road-minor", "road-major", "border-state", "border-country"];
 /** Far fainter than the first version: the planes are the hero. */
 export const OPACITY: Record<Theme, number> = { light: 0.4, dark: 0.42 };
-const SATURATION = -0.3;
+/** Weaker as you zoom in: the tiles stop at z6, so closer views show stretched blobs that should not outshine traffic. */
+export const radarOpacity = (theme: Theme) =>
+  ["interpolate", ["linear"], ["zoom"], 3, OPACITY[theme], 6, OPACITY[theme] * 0.75, 9, OPACITY[theme] * 0.55] as unknown as number;
+const SATURATION = -0.45;
 
 export const radarId = (f: Pick<RadarFrame, "time">) => `radar-${f.time}`;
 /** RainViewer colour scheme 2 ("Universal Blue") at 512 px, smoothed, no snow colours. */
@@ -49,7 +52,7 @@ export function radarFrameSpec(f: RadarFrame, host: string, theme: Theme, visibl
     layer: {
       id, type: "raster" as const, source: id, layout: { visibility: visible ? "visible" as const : "none" as const },
       paint: {
-        "raster-opacity": shown ? OPACITY[theme] : 0,
+        "raster-opacity": shown ? radarOpacity(theme) : 0,
         "raster-opacity-transition": { duration: INTRO_MS, delay: 0 },
         "raster-fade-duration": 160, "raster-resampling": "linear" as const, "raster-saturation": SATURATION,
       },
@@ -270,7 +273,7 @@ export class Radar {
     if (!this.shown) {
       if (!this.isVisible(cur) && Date.now() >= this.backoffUntil) this.setVis(cur, true);
       if (this.ready(this.idx)) {
-        this.shown = true; this.fade(cur, OPACITY[this.theme], INTRO_MS);
+        this.shown = true; this.fade(cur, radarOpacity(this.theme), INTRO_MS);
         if (this.ghost) { this.fade(this.ghost, 0, INTRO_MS, INTRO_MS * 0.35); this.holdUntil.set(this.ghost.time, Date.now() + INTRO_MS * 1.35 + 80); setTimeout(() => this.sync(), INTRO_MS * 1.35 + 150); this.ghost = null; }
         this.emit();
       }
@@ -286,7 +289,7 @@ export class Radar {
     const prev = this.frames[this.idx], next = this.frames[i];
     if (!next || i === this.idx) return;
     this.idx = i;
-    this.fade(next, OPACITY[this.theme], ms);
+    this.fade(next, radarOpacity(this.theme), ms);
     if (prev) { this.fade(prev, 0, ms, ms * 0.35); this.holdUntil.set(prev.time, Date.now() + ms * 1.35 + 80); setTimeout(() => this.sync(), ms * 1.35 + 120); }
     this.emit();
   }

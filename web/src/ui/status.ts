@@ -2,6 +2,7 @@
 import { type Alert, type Feed, type Status, fetchAlerts, fetchStatus, Loop, serverNow } from "../api";
 import { fmtAgo, fmtAlt, fmtInt } from "../lib/core";
 import { closeOthers, registerPopover } from "./popovers";
+import { hide, setShown, show, shown } from "./motion";
 
 const STATE: Record<string, string> = { ok: "Opérationnel", degraded: "Dégradé", rate_limited: "Limite atteinte", idle: "En veille", disabled: "Désactivé", exhausted: "Crédits épuisés", auth_error: "Clé refusée" };
 const NAMES: Record<string, string> = { opensky: "OpenSky", "adsb.lol": "adsb.lol", "adsb.fi": "adsb.fi", fr24: "Flightradar24" };
@@ -58,9 +59,9 @@ export class StatusChip {
     this.loop.start(); this.alertLoop.start();
   }
 
-  get isOpen() { return !this.pop.hidden; }
-  toggle() { if (this.pop.hidden) { closeOthers(this.pop); this.pop.hidden = false; this.chip.setAttribute("aria-expanded", "true"); this.render(); } else this.close(); }
-  close() { this.pop.hidden = true; this.chip.setAttribute("aria-expanded", "false"); }
+  get isOpen() { return shown(this.pop); }
+  toggle() { if (!shown(this.pop)) { closeOthers(this.pop); show(this.pop); this.chip.setAttribute("aria-expanded", "true"); this.render(); } else this.close(); }
+  close() { hide(this.pop); this.chip.setAttribute("aria-expanded", "false"); }
 
   private render() {
     const s = this.failed ? null : this.status;
@@ -68,7 +69,7 @@ export class StatusChip {
     (document.getElementById("chip-dot") as HTMLElement).className = `dot ${lvl}`;
     document.getElementById("chip-text")!.textContent = s ? `${fmtInt(s.planes)} avions` : this.status ? "Connexion perdue" : "— avions";
     const n = s?.alerts ?? 0;
-    (document.getElementById("chip-alert") as HTMLElement).hidden = n === 0;
+    setShown(document.getElementById("chip-alert") as HTMLElement, n > 0);
     this.chip.setAttribute("aria-label", `${s ? `${fmtInt(s.planes)} avions` : "État des flux"}${n ? `, ${n} alerte${n > 1 ? "s" : ""}` : ""}`);
     if (this.pop.hidden) return;
     const body = document.getElementById("status-body")!;

@@ -21,6 +21,7 @@ export class WindLayer {
   enabled = false;
   private level = "250";
   private tone = "38, 50, 72";
+  private alpha = 0.3;
   private cv: HTMLCanvasElement;
   private g: CanvasRenderingContext2D | null;
   private grid: Cached | null = null;
@@ -52,7 +53,10 @@ export class WindLayer {
   }
 
   /** `satellite`: streaks turn white over imagery. */
-  setTone(dark: boolean, satellite: boolean) { this.tone = dark || satellite ? "255, 255, 255" : "38, 50, 72"; }
+  setTone(dark: boolean, satellite: boolean) {
+    this.tone = dark || satellite ? "255, 255, 255" : "38, 50, 72";
+    this.alpha = dark || satellite ? 0.42 : 0.3;
+  }
 
   set(on: boolean, level = this.level) {
     this.level = level;
@@ -176,8 +180,9 @@ export class WindLayer {
     g.setTransform(d, 0, 0, d, 0, 0);
     if (this.reduced) g.clearRect(0, 0, w, h);
     else { g.globalCompositeOperation = "destination-out"; g.fillStyle = `rgba(0,0,0,${FADE})`; g.fillRect(0, 0, w, h); g.globalCompositeOperation = "source-over"; }
-    g.lineWidth = 1.15; g.lineCap = "round";
-    g.strokeStyle = `rgba(${this.tone}, ${this.reduced ? 0.4 : 0.5})`;
+    // streaks stay secondary to the aircraft: thin, and fainter on the light basemap where dark ink reads strongly
+    g.lineWidth = 1; g.lineCap = "round";
+    g.strokeStyle = `rgba(${this.tone}, ${(this.reduced ? 0.8 : 1) * this.alpha})`;
     g.beginPath();
     for (let i = 0; i < this.n; i++) {
       if (this.age[i] >= MAX_AGE) { this.seed(i, w, h, cl, globe); if (this.age[i] >= MAX_AGE) continue; }

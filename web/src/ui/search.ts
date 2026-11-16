@@ -1,6 +1,7 @@
 // Search box: "/" to focus, arrows to move, Enter to pick, Esc to clear. Ranking lives in lib/core.
 import { type Hit, type Searchable, search } from "../lib/core";
 import { icon } from "./icons";
+import { hide, show, shown } from "./motion";
 
 export interface Row { kind: "plane" | "airport"; title: string; sub: string; side: string }
 export interface SearchDeps {
@@ -17,7 +18,7 @@ export function initSearch(deps: SearchDeps) {
   let hits: Hit[] = [], active = 0, timer: ReturnType<typeof setTimeout> | undefined;
   let pending = false, seq = 0, ctl: AbortController | undefined;
 
-  const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); };
+  const close = () => { hide(list); input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); };
   const mark = () => {
     [...list.children].forEach((li, i) => li.setAttribute("aria-selected", String(i === active)));
     const cur = list.children[active] as HTMLElement | undefined;
@@ -46,7 +47,7 @@ export function initSearch(deps: SearchDeps) {
       li.addEventListener("mousemove", () => { if (active !== i) { active = i; mark(); } });
       list.append(li);
     });
-    list.hidden = false; input.setAttribute("aria-expanded", "true");
+    show(list); input.setAttribute("aria-expanded", "true");
     if (!keep || active >= hits.length) active = 0;
     mark();
   };
@@ -80,12 +81,12 @@ export function initSearch(deps: SearchDeps) {
   input.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      if (list.hidden && input.value.trim()) return run();
+      if (!shown(list) && input.value.trim()) return run();
       if (hits.length) { active = (active + (e.key === "ArrowDown" ? 1 : hits.length - 1)) % hits.length; mark(); }
     } else if (e.key === "Enter") {
       e.preventDefault();
       clearTimeout(timer);
-      if (!hits.length || list.hidden) run();
+      if (!hits.length || !shown(list)) run();
       choose(active);
     } else if (e.key === "Escape") {
       e.stopPropagation();

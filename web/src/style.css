@@ -8,6 +8,7 @@
   --cx: 50%;
   --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.45, 0, 0.7, 0.6);
   --r-lg: 18px;
   --r-md: 12px;
   --r-sm: 8px;
@@ -602,6 +603,19 @@ dt { font-size: 12px; color: var(--ink-3); }
 #f-alt-min::-webkit-slider-runnable-track { background: linear-gradient(90deg, var(--surface-3) var(--v), var(--accent) var(--v)); }
 #f-alt-min::-moz-range-track { background: linear-gradient(90deg, var(--surface-3) var(--v), var(--accent) var(--v)); }
 @media (hover: none) { .btn.zoom, .sep, .kbd { display: none; } }
+/* exits (ui/motion.ts): same path as the entrance, reversed and quicker */
+[data-leaving] { animation: leave 150ms var(--ease-in) both !important; pointer-events: none; }
+@keyframes leave { to { opacity: 0; transform: translateY(-4px) scale(0.985); } }
+.status[data-leaving], .credits[data-leaving] { animation-name: leave-down !important; }
+@keyframes leave-down { to { opacity: 0; transform: translateY(4px) scale(0.985); } }
+.toast[data-leaving] { animation-name: toast-out !important; }
+@keyframes toast-out { to { opacity: 0; transform: translate(-50%, 6px); } }
+.chip-alert[data-leaving], #chip-alert[data-leaving] { animation-name: fade-out !important; }
+@keyframes fade-out { to { opacity: 0; } }
+/* another aircraft or airport picked while the panel is open */
+.swap { animation: swap-in 280ms var(--ease) both; }
+@keyframes swap-in { from { opacity: 0.25; transform: translateY(6px); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; transition-delay: 0s !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
   .pulse i { animation: none; opacity: 0.4; } .pulse i + i { display: none; }

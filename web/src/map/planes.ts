@@ -60,6 +60,7 @@ export class PlaneLayer {
   private aptData: object = EMPTY;
   private metarData: object = EMPTY;
   private metarVisible = false;
+  private fadeBase = new Map<string, unknown>();
 
   constructor(private map: maplibregl.Map, private store: Map<string, Track>) {
     map.on("sourcedata", (e) => { if (e.sourceId === "planes" && e.isSourceLoaded) this.inflight = 0; });
@@ -105,7 +106,7 @@ export class PlaneLayer {
   }
   setAtcVisible(v: boolean) {
     this.atcVisible = v;
-    for (const id of ["atc-dots", "atc-names"]) if (this.map.getLayer(id)) this.map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
+    this.fadeLayers(["atc-dots", "atc-names"], v, () => this.atcVisible);
   }
   /** Mark the airport whose radio is playing (soft pulsing ring), or clear it. */
   setAtcLive(p: { lat: number; lon: number } | null) {
@@ -164,7 +165,36 @@ export class PlaneLayer {
   }
   setMetarVisible(v: boolean) {
     this.metarVisible = v;
-    for (const id of ["metar-dots", "metar-labels"]) if (this.map.getLayer(id)) this.map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
+    this.fadeLayers(["metar-dots", "metar-labels"], v, () => this.metarVisible);
+  }
+
+  /** Fade layers in or out instead of snapping their visibility. `still` re-checks the wish before hiding for good. */
+  private fadeLayers(ids: string[], on: boolean, still: () => boolean) {
+    const m = this.map;
+    const props = (id: string) => (m.getLayer(id)?.type === "circle" ? ["circle-opacity", "circle-stroke-opacity"] : ["text-opacity", "icon-opacity"]);
+    const apply = (dur: number, zero: boolean) => {
+      for (const id of ids) {
+        if (!m.getLayer(id)) continue;
+        for (const p of props(id)) {
+          const key = `${id}|${p}`;
+          if (!this.fadeBase.has(key)) this.fadeBase.set(key, m.getPaintProperty(id, p) ?? 1);
+          m.setPaintProperty(id, `${p}-transition`, { duration: dur, delay: 0 });
+          m.setPaintProperty(id, p, zero ? 0 : this.fadeBase.get(key));
+        }
+      }
+    };
+    if (reducedMotion()) {
+      for (const id of ids) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+      return;
+    }
+    if (on) {
+      apply(0, true);
+      for (const id of ids) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", "visible");
+      requestAnimationFrame(() => { if (still()) apply(320, false); });
+    } else {
+      apply(200, true);
+      setTimeout(() => { if (!still()) for (const id of ids) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", "none"); }, 220);
+    }
   }
 
   /** Trail + route endpoints from the latest detail response. `showRoute` is false when the route is unconfirmed. */

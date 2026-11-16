@@ -30,6 +30,7 @@ import { initSearch } from "./ui/search";
 import { initStars } from "./ui/space";
 import { StatusChip } from "./ui/status";
 import { currentTheme, initTheme } from "./ui/theme";
+import { hide, show } from "./ui/motion";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const phone = () => isPhone(innerWidth);
@@ -95,7 +96,7 @@ const metar = new MetarFeed(map, (s) => layer.setMetar(s));
 
 function updateNight() {
   const src = map.getSource("night") as maplibregl.GeoJSONSource | undefined;
-  src?.setData(nightPolygons(new Date(), currentTheme() === "dark" ? 1 : 0.62) as unknown as Parameters<maplibregl.GeoJSONSource["setData"]>[0]);
+  src?.setData(nightPolygons(new Date(), currentTheme() === "dark" ? 1 : 0.4) as unknown as Parameters<maplibregl.GeoJSONSource["setData"]>[0]);
 }
 function paintLegend() {
   const stops = altRamp(currentTheme() === "dark").map(([ft, c]) => `${c} ${(ft / ALT_STOPS[ALT_STOPS.length - 1][0]) * 100}%`).join(", ");
@@ -109,16 +110,25 @@ map.on("style.load", () => {
   metar.replay();
   updateNight(); paintLegend(); paintWindTone();
 });
-map.once("load", () => { map.once("idle", () => bootStep("map")); setTimeout(() => bootStep("map"), 3500); });
+// Not "idle": live planes repaint the map continuously, so idle never comes and the splash sat out its timeout.
+// The basemap tiles under the first view are what make the reveal look finished.
+map.once("load", () => {
+  const t0 = performance.now();
+  const check = () => {
+    if (map.isSourceLoaded("omt") || performance.now() - t0 > 2500) bootStep("map");
+    else setTimeout(check, 60);
+  };
+  check();
+});
 setInterval(() => { if (!document.hidden) updateNight(); }, 60_000);
 
 // ---------- toast ----------
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 function toast(msg: string) {
   const el = $("toast");
-  el.textContent = msg; el.hidden = false;
+  el.textContent = msg; show(el);
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (el.hidden = true), 3200);
+  toastTimer = setTimeout(() => hide(el), 3200);
 }
 
 // ---------- data ----------
