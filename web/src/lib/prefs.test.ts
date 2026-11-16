@@ -3,14 +3,14 @@ import { credits } from "./attribution";
 import { DEFAULT_PREFS, parsePrefs } from "./prefs";
 
 describe("layer preferences", () => {
-  it("defaults to radar and estimated positions on, everything else off", () => {
+  it("defaults to estimated positions on, weather and everything else off", () => {
     expect(parsePrefs(null)).toEqual(DEFAULT_PREFS);
-    expect(DEFAULT_PREFS).toMatchObject({ radar: true, est: true, winds: false, metar: false, satellite: false });
+    expect(DEFAULT_PREFS).toMatchObject({ radar: false, est: true, winds: false, metar: false, satellite: false });
   });
   it("migrates the old satellite / radar keys and survives garbage", () => {
     expect(parsePrefs(null, { sat: "1", radar: "0" })).toMatchObject({ satellite: true, radar: false });
     expect(parsePrefs("{oops")).toEqual(DEFAULT_PREFS);
-    expect(parsePrefs(JSON.stringify({ winds: true, windLevel: "bogus", radar: "yes" }))).toMatchObject({ winds: true, windLevel: "250", radar: true });
+    expect(parsePrefs(JSON.stringify({ winds: true, windLevel: "bogus", radar: "yes" }))).toMatchObject({ winds: true, windLevel: "250", radar: false });
   });
 });
 

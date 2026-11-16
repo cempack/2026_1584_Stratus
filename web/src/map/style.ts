@@ -116,7 +116,9 @@ export function buildStyle(theme: Theme, opts: BasemapOptions = {}): StyleSpecif
       // maxzoom is explicit: the TileJSON says 14 and a missing value would trigger needless requests above it.
       omt: { type: "vector", url: "https://tiles.openfreemap.org/planet", maxzoom: 14,
         attribution: '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
-      land: { type: "geojson", data: land110 as unknown as GeoJSONSourceSpecification["data"], tolerance: 0.4 },
+      // maxzoom 4: 110 m data gains nothing from finer tiles, and z4-5.4 then reuse drawn tiles instead of queueing new ones
+      // behind the plane updates on the workers (a queued tile showed as a sea-coloured square over land).
+      land: { type: "geojson", data: land110 as unknown as GeoJSONSourceSpecification["data"], tolerance: 0.4, maxzoom: 4, buffer: 64 },
       airports: { type: "geojson", data: AIRPORTS_GEOJSON as unknown as GeoJSONSourceSpecification["data"], maxzoom: 8 },
       night: { type: "geojson", data: EMPTY_FC as unknown as GeoJSONSourceSpecification["data"] },
       sat: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 18,

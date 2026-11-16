@@ -10,7 +10,8 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const get = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const set = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
-const PREFS_KEY = "stratus.layers", FILTERS_KEY = "stratus.filters";
+// v2: weather back to off by default; the new key drops prefs saved under the old radar-on default
+const PREFS_KEY = "stratus.layers.v2", FILTERS_KEY = "stratus.filters";
 export const loadPrefs = () => parsePrefs(get(PREFS_KEY), { sat: get("stratus.sat"), radar: get("stratus.radar") });
 export const loadFilters = () => parseFilters(get(FILTERS_KEY));
 
