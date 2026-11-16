@@ -8,6 +8,7 @@
 // network failures. 8 kbps feeds take a few seconds to start, so a watchdog gives up after 12 s and moves on to the
 // next feed of the same airport before offering a retry button.
 import { type AtcAirport, type AtcFeed, atcAudioUrl, fetchAtc } from "../api";
+import { MseStream, mseSupported } from "../lib/stream";
 import { norm } from "../lib/core";
 import { KIND_ICON, Meter, chipLabels, feedKind, parseFreq } from "../lib/radio";
 import { icon } from "./icons";
@@ -43,6 +44,7 @@ export class Atc {
   private current: AtcAirport | null = null;
   private feed: AtcFeed | null = null;
   private audio = new Audio();
+  private mse?: MseStream;
   private loadState: "loading" | "ok" | "empty" | "error" = "loading";
   private loaded: Promise<void> | null = null;
 
@@ -124,12 +126,7 @@ export class Atc {
       if (this.wanted && au.paused && !this.internalPause) au.play().catch((e) => this.onReject(this.gen, e));
     });
     au.addEventListener("error", () => { if (this.wanted) this.fail(this.gen, "error"); });
-    au.addEventListener("ended", () => {
-      if (!this.wanted) return;
-      // the proxy closed (upstream restart): reconnect a few times before giving up on this feed
-      if (this.reconnects++ < 3 && this.feed) setTimeout(() => { if (this.wanted && this.feed) this.start(this.feed, true); }, 800);
-      else this.fail(this.gen, "ended");
-    });
+    au.addEventListener("ended", () => this.streamEnded(this.gen));
     au.addEventListener("pause", () => {
       // OS media keys, headset button…: our own teardown bumps `gen`/clears `wanted`, so only a foreign pause survives this check
       const my = this.gen;
@@ -240,10 +237,22 @@ export class Atc {
     this.ensureGraph();
     const au = this.audio;
     this.internalPause = true;
-    au.src = atcAudioUrl(a.icao, feed.id);
+    this.mse?.stop();
+    this.mse = undefined;
+    const url = atcAudioUrl(a.icao, feed.id);
+    // MSE starts on the first frames; a plain src makes the browser wait for a large buffer (slow at 8-32 kbps)
+    if (mseSupported()) this.mse = new MseStream(au, url, (err) => (err ? this.fail(my, "network") : this.streamEnded(my)));
+    else au.src = url;
     this.internalPause = false;
     const p = au.play();
     if (p) p.catch((e) => this.onReject(my, e));
+  }
+
+  /** The proxy closed the stream (upstream restart): reconnect a few times before giving up on this feed. */
+  private streamEnded(my: number) {
+    if (my !== this.gen || !this.wanted) return;
+    if (this.reconnects++ < 3 && this.feed) setTimeout(() => { if (my === this.gen && this.wanted && this.feed) this.start(this.feed, true); }, 800);
+    else this.fail(my, "ended");
   }
 
   private arm(my: number, ms: number) {
@@ -284,6 +293,8 @@ export class Atc {
   private halt() {
     clearTimeout(this.watchdog);
     this.internalPause = true;
+    this.mse?.stop();
+    this.mse = undefined;
     this.audio.pause();
     this.audio.removeAttribute("src");
     this.audio.load();

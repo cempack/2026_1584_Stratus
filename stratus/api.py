@@ -15,6 +15,7 @@ from flask import Flask, Response, abort, jsonify, request, send_from_directory,
 from . import board
 from .airports import Airports
 from .atc import AUDIO_HEADERS, AtcCatalog
+from .audiohub import AudioHub, Unavailable
 from .config import Config
 from .enrich import Enricher, route_plausible
 from .feeds.opensky import OpenSkyPoller
@@ -56,6 +57,7 @@ class Runtime:
         self.sweeper = Sweeper(self.readsb, self.store, interval=cfg.sweep_interval, clock=clock,
                                enabled=cfg.sweep_enabled)
         self.atc = AtcCatalog(cfg.atc_dir)
+        self.audio = AudioHub(AUDIO_HEADERS)
         self.stop = threading.Event()
         self.started = False
         self._start_lock = threading.Lock()
@@ -328,20 +330,11 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
         if not feed:
             return _json({"error": "unknown airport or feed"}, 404)
         try:
-            upstream = requests.get(feed["url"], headers=AUDIO_HEADERS, timeout=(8, 20), stream=True)
-            upstream.raise_for_status()
-        except requests.RequestException as exc:
+            relay = rt.audio.open(feed["url"])
+        except Unavailable as exc:
             return _json({"error": f"audio stream unavailable: {exc}"}, 502)
 
-        def generate():
-            try:
-                for chunk in upstream.iter_content(1024):
-                    if chunk:
-                        yield chunk
-            finally:
-                upstream.close()
-
-        resp = Response(stream_with_context(generate()), mimetype=upstream.headers.get("Content-Type", "audio/mpeg"))
+        resp = Response(stream_with_context(relay.stream()), mimetype=relay.content_type)
         resp.headers["Cache-Control"] = "no-store"
         resp.headers["X-Accel-Buffering"] = "no"
         return resp
