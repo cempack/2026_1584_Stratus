@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="Stratus — trafic aérien mondial en direct : positions, trajectoires, itinéraires et radio ATC." />
+  <title>Stratus — trafic aérien en direct</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("stratus.theme");
+        if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = t;
+      } catch (e) { document.documentElement.dataset.theme = "dark"; }
+    })();
+  </script>
+</head>
+<body>
+  <div id="map" role="application" aria-label="Carte du trafic aérien en direct"></div>
+
+  <header class="topbar">
+    <div class="brand" aria-label="Stratus"><span class="brand-mark" data-icon="plane"></span><span class="brand-name">Stratus</span></div>
+    <div class="search" role="search">
+      <span class="search-icon" data-icon="search"></span>
+      <input id="q" type="text" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list"
+             placeholder="Vol, immatriculation, aéroport" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Rechercher" />
+      <kbd class="kbd" aria-hidden="true">/</kbd>
+      <ul id="results" class="results" role="listbox" hidden></ul>
+    </div>
+  </header>
+
+  <nav class="tools" aria-label="Outils de la carte">
+    <div class="group zoom">
+      <button id="zoom-in" class="btn" aria-label="Zoomer" data-icon="plus"></button>
+      <button id="zoom-out" class="btn" aria-label="Dézoomer" data-icon="minus"></button>
+    </div>
+    <div class="group">
+      <button id="btn-radar" class="btn" aria-pressed="false" aria-label="Radar météo" title="Radar de précipitations" data-icon="rain"></button>
+      <button id="btn-atc" class="btn" aria-pressed="false" aria-label="Radio ATC" title="Radio ATC" data-icon="radio"></button>
+      <button id="btn-theme" class="btn" aria-label="Changer de thème" title="Thème clair / sombre" data-icon="moon"></button>
+    </div>
+  </nav>
+
+  <section id="atc" class="popover atc" hidden aria-label="Radio ATC">
+    <div class="pop-head"><h2>Radio ATC</h2><button class="btn ghost small" data-close aria-label="Fermer" data-icon="x"></button></div>
+    <div class="field"><span class="field-icon" data-icon="search"></span><input id="atc-q" type="text" placeholder="Filtrer les aéroports" autocomplete="off" spellcheck="false" aria-label="Filtrer les aéroports" /></div>
+    <ul id="atc-list" class="list" role="listbox" aria-label="Aéroports"></ul>
+    <div id="atc-player" class="player" hidden>
+      <div class="player-top">
+        <button id="atc-play" class="btn primary" aria-label="Écouter" data-icon="play"></button>
+        <div class="player-info"><b id="atc-title">—</b><span id="atc-state">Arrêté</span></div>
+      </div>
+      <select id="atc-feed" aria-label="Fréquence"></select>
+      <label class="vol"><span data-icon="volume"></span><input id="atc-vol" type="range" min="0" max="1" step="0.05" value="0.8" aria-label="Volume" /></label>
+    </div>
+  </section>
+
+  <div class="status-wrap">
+    <section id="status-pop" class="popover status" hidden aria-label="État des flux">
+      <div class="pop-head"><h2>État des flux</h2><button class="btn ghost small" data-close aria-label="Fermer" data-icon="x"></button></div>
+      <div id="status-body"></div>
+    </section>
+    <button id="chip" class="chip" aria-expanded="false" aria-controls="status-pop">
+      <i id="chip-dot" class="dot"></i><span id="chip-text">Connexion…</span>
+    </button>
+  </div>
+
+  <aside id="panel" class="panel" aria-label="Détails du vol" aria-hidden="true">
+    <button id="sheet-handle" class="sheet-handle" aria-label="Agrandir ou réduire le panneau"><i></i></button>
+    <div class="panel-scroll" id="panel-scroll">
+      <figure id="p-photo" class="photo" hidden>
+        <a id="p-photo-link" target="_blank" rel="noopener noreferrer"><img id="p-img" alt="" decoding="async" referrerpolicy="no-referrer" /></a>
+        <figcaption>Photo © <span id="p-photographer"></span> · <a id="p-credit-link" target="_blank" rel="noopener noreferrer">Planespotters.net</a></figcaption>
+      </figure>
+
+      <header class="p-head">
+        <div class="p-title"><h2 id="p-cs">—</h2><p id="p-airline"></p></div>
+        <div class="p-actions">
+          <button id="p-follow" class="btn ghost" aria-pressed="false" aria-label="Suivre l’avion" title="Suivre l’avion" data-icon="locate"></button>
+          <button id="p-share" class="btn ghost" aria-label="Copier le lien" title="Copier le lien" data-icon="link"></button>
+          <button id="p-close" class="btn ghost" aria-label="Fermer" title="Fermer (Échap)" data-icon="x"></button>
+        </div>
+      </header>
+      <div id="p-badges" class="badges"></div>
+
+      <section class="route" id="p-route" aria-label="Itinéraire">
+        <div class="ends">
+          <div class="end"><b id="r-o">—</b><span id="r-oc"></span></div>
+          <span class="route-plane" data-icon="plane"></span>
+          <div class="end right"><b id="r-d">—</b><span id="r-dc"></span></div>
+        </div>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="r-bar"><i id="r-fill"></i></div>
+        <div class="legs"><span id="r-flown"></span><span id="r-left"></span></div>
+      </section>
+
+      <dl class="grid">
+        <div><dt>Altitude</dt><dd id="v-alt">—</dd><dd class="sub" id="v-alt2"></dd></div>
+        <div><dt>Vitesse sol</dt><dd id="v-gs">—</dd><dd class="sub" id="v-gs2"></dd></div>
+        <div><dt>Taux vertical</dt><dd id="v-vr">—</dd><dd class="sub" id="v-vr2"></dd></div>
+        <div><dt>Cap</dt><dd id="v-trk">—</dd><dd class="sub" id="v-trk2"></dd></div>
+        <div><dt>Transpondeur</dt><dd id="v-sqk">—</dd><dd class="sub" id="v-sqk2"></dd></div>
+        <div><dt>Code ICAO</dt><dd id="v-hex">—</dd><dd class="sub" id="v-pos"></dd></div>
+      </dl>
+
+      <section class="block">
+        <h3>Appareil</h3>
+        <dl class="rows">
+          <div><dt>Modèle</dt><dd id="a-type">—</dd></div>
+          <div><dt>Immatriculation</dt><dd id="a-reg">—</dd></div>
+          <div><dt>Exploitant</dt><dd id="a-op">—</dd></div>
+          <div><dt>Pays</dt><dd id="a-country">—</dd></div>
+        </dl>
+      </section>
+
+      <section class="block" id="wx-block">
+        <h3>Météo à l’altitude de l’avion</h3>
+        <dl class="rows">
+          <div><dt>Température</dt><dd id="w-temp">—</dd></div>
+          <div><dt>Vent</dt><dd id="w-wind">—</dd></div>
+          <div><dt>Nébulosité</dt><dd id="w-cloud">—</dd></div>
+        </dl>
+      </section>
+
+      <footer class="fresh"><i id="f-dot" class="dot"></i><span id="f-text">—</span></footer>
+    </div>
+  </aside>
+
+  <div id="tip" class="tip" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

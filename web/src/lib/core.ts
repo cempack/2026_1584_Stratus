@@ -176,8 +176,17 @@ export function shapeOf(cat: string | null, type: string | null): Shape {
 }
 
 // ---------- search ----------
-export const norm = (s: string | null | undefined) =>
-  (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+const normMemo = new Map<string, string>();
+export function norm(s: string | null | undefined): string {
+  if (!s) return "";
+  let v = normMemo.get(s);
+  if (v === undefined) {
+    v = s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+    if (normMemo.size > 80_000) normMemo.clear();
+    normMemo.set(s, v);
+  }
+  return v;
+}
 
 export interface Searchable { key: string; kind: "plane" | "airport"; fields: { value: string | null; label: string; weight: number }[] }
 export interface Hit { key: string; kind: Searchable["kind"]; score: number; label: string }

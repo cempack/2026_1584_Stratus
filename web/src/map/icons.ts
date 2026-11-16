@@ -13,7 +13,7 @@ const PATHS: Record<Shape, string> = {
 
 const SIZE = 48, BUF = 6, RADIUS = 6;
 
-/** Brute-force SDF (small images, run once): 192/255 at the edge, as MapLibre expects. */
+/** Brute-force SDF (small images, run once): 192/255 at the edge and 255/8 levels per pixel, as MapLibre expects. */
 function toSdf(alpha: Uint8ClampedArray, w: number, h: number): Uint8ClampedArray {
   const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && alpha[(y * w + x) * 4 + 3] > 127;
   const out = new Uint8ClampedArray(w * h * 4);
@@ -24,7 +24,7 @@ function toSdf(alpha: Uint8ClampedArray, w: number, h: number): Uint8ClampedArra
       if (inside(x + dx, y + dy) !== ins) { const d = Math.hypot(dx, dy) - 0.5; if (d < best) best = d; }
     }
     const signed = ins ? best : -best;
-    const v = Math.round(192 + (signed / RADIUS) * 63);
+    const v = Math.round(192 + signed * (255 / 8)); // MapLibre SDF scale: 8 px spread, edge at 0.75
     out[(y * w + x) * 4 + 3] = Math.max(0, Math.min(255, v));
   }
   return out;
