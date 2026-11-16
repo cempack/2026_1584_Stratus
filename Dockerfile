@@ -1,17 +1,29 @@
+# --- Frontend build ---------------------------------------------------------
+FROM node:22-slim AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
+# --- Runtime ----------------------------------------------------------------
 FROM python:3.13-slim
 
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=8090 STRATUS_DATA_DIR=/app/data
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY stratus/ stratus/
+COPY data/ data/
+COPY --from=web /web/dist web/dist
 
-# OpenSky credentials: set OPENSKY_CLIENT_ID / OPENSKY_CLIENT_SECRET in the environment.
-# The OpenSky cache snapshot lives in /app/data/cache; mount a volume there to keep it across deploys.
+# OpenSky credentials: OPENSKY_CLIENT_ID / OPENSKY_CLIENT_SECRET from the environment.
+# Mount a volume on /app/data/cache to keep the plane snapshot and credit budget across deploys.
 EXPOSE 8090
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/', timeout=4)"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/api/status', timeout=4)"
 
-CMD ["python", "main.py", "--no-browser", "--host", "0.0.0.0", "--port", "8090"]
+# One worker: the feed pollers live in-process. Threads serve concurrent requests.
+CMD ["sh", "-c", "exec gunicorn -w 1 --threads 16 -b 0.0.0.0:${PORT} --timeout 60 --access-logfile - 'stratus.api:create_app()'"]
