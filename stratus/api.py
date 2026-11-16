@@ -104,7 +104,7 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
     def planes():
         rt.opensky.note_client_hit()
         _, raw, gz, etag = rt.store.snapshot()
-        if etag in request.if_none_match:
+        if etag.strip('"') in request.if_none_match:
             resp = Response(status=304)
             resp.headers["ETag"] = etag
             resp.headers["Cache-Control"] = "no-store"
