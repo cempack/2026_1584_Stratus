@@ -72,3 +72,7 @@ npm-debug.log*
 yarn-error.log*
 yarn-debug.log*
 pnpm-debug.log*
+
+# Frontend (web/)
+web/node_modules/
+web/dist/
