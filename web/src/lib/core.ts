@@ -32,7 +32,7 @@ export const MAX_DR_S = 90;
 export const EASE_S = 1;
 export const STALE_S = 300;
 
-const R_NM = 3440.065;
+export const R_NM = 3440.065;
 const rad = Math.PI / 180;
 
 /** Destination point from (lat, lon) moving `nm` nautical miles on bearing `brg` (deg). */

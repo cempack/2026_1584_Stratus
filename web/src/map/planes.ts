@@ -1,11 +1,12 @@
 // Map layers for aircraft: one GeoJSON source for the fleet (throttled dead reckoning, viewport culling),
 // one for the selected plane (animated every frame), plus altitude-coloured trail and the route to the destination.
-import type maplibregl from "maplibre-gl";
+// Picking is done against the positions that were last handed to the GPU, so what you click is what you see.
+import maplibregl from "maplibre-gl";
 import type { GeoJSONSource } from "maplibre-gl";
-import { type Track, altRamp, greatCircle, oklchToHex, renderPos, shapeOf, STALE_S, unwrap, type Shape } from "../lib/core";
+import { type Track, altRamp, greatCircle, renderPos, shapeOf, STALE_S, unwrap, type Shape } from "../lib/core";
 import { serverNow, type Airport, type TrailPoint } from "../api";
 import { SHAPES, makeIcon } from "./icons";
-import type { Theme } from "./style";
+import { ACCENT, type Theme } from "./style";
 
 type Pt = [number, number];
 interface Props { hex: string; icon: string; trk: number; alt: number; op: number; sz: number; cs: string }
@@ -13,18 +14,29 @@ interface F { type: "Feature"; geometry: { type: "Point"; coordinates: Pt }; pro
 const EMPTY = { type: "FeatureCollection", features: [] } as const;
 
 const SIZE: Record<Shape, number> = { light: 0.85, jet: 1, heavy: 1.2, turboprop: 0.95, heli: 0.85, other: 0.8 };
-export const accentHex = (theme: Theme) => (theme === "dark" ? oklchToHex(0.8, 0.14, 78) : oklchToHex(0.68, 0.15, 68));
+export const accentHex = (theme: Theme) => ACCENT[theme];
 
 const PAL = {
-  dark: { halo: "#0d0f12", label: "#aab0b8", labelHalo: "#16181c", route: "#8f969f", dot: "#16181c" },
-  light: { halo: "#ffffff", label: "#4b5159", labelHalo: "#f3f4f6", route: "#6b7179", dot: "#ffffff" },
+  dark: { halo: "#06080c", label: "#aab2c0", labelHalo: "#0e1117", route: "#F5B544", dot: "#0e1117", casing: "#05070b" },
+  light: { halo: "#ffffff", label: "#4b5159", labelHalo: "#f2f3f5", route: "#D4900F", dot: "#ffffff", casing: "#ffffff" },
 };
+
+const wrapDiff = (a: number, b: number) => { let d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return d; };
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function pulseEl(cls: string) {
+  const el = document.createElement("div");
+  el.className = `pulse ${cls}`;
+  el.innerHTML = "<i></i><i></i>";
+  return el;
+}
 
 export class PlaneLayer {
   selected: string | null = null;
   /** Called at ~30 Hz with the animated position of the selected plane. */
   onSelectedMove: ((lat: number, lon: number) => void) | null = null;
   private cache = new Map<string, F>();
+  private rendered: F[] = [];
   private dirty = true;
   private lastMain = 0;
   private lastSel = 0;
@@ -40,6 +52,9 @@ export class PlaneLayer {
   private showRoute = false;
   private atcData: object = EMPTY;
   private atcVisible = false;
+  private atcLiveData: object = EMPTY;
+  private selMarker: maplibregl.Marker | null = null;
+  private atcMarker: maplibregl.Marker | null = null;
 
   constructor(private map: maplibregl.Map, private store: Map<string, Track>) {
     map.on("sourcedata", (e) => { if (e.sourceId === "planes" && e.isSourceLoaded) this.inflight = 0; });
@@ -53,9 +68,10 @@ export class PlaneLayer {
     const c = PAL[theme], accent = accentHex(theme);
     for (const s of SHAPES) if (!m.hasImage(`plane-${s}`)) m.addImage(`plane-${s}`, makeIcon(s), { sdf: true, pixelRatio: 2 });
     const empty = () => ({ type: "geojson", data: EMPTY }) as const;
-    for (const id of ["planes", "sel", "trail", "route", "points", "atc"]) if (!m.getSource(id)) m.addSource(id, empty());
+    for (const id of ["planes", "sel", "trail", "route", "points", "atc", "atc-live"]) if (!m.getSource(id)) m.addSource(id, empty());
 
-    const altColor = ["interpolate", ["linear"], ["get", "alt"], ...altRamp(theme === "dark").flat()] as maplibregl.ExpressionSpecification;
+    const ramp = altRamp(theme === "dark").flat();
+    const altColor = ["interpolate", ["linear"], ["get", "alt"], ...ramp] as maplibregl.ExpressionSpecification;
     const size = (k: number) => ["interpolate", ["linear"], ["zoom"], 2, ["*", 0.36 * k, ["get", "sz"]], 5, ["*", 0.5 * k, ["get", "sz"]], 8, ["*", 0.66 * k, ["get", "sz"]], 11, ["*", 0.85 * k, ["get", "sz"]], 15, ["*", 1.05 * k, ["get", "sz"]]] as maplibregl.ExpressionSpecification;
     const iconLayout = (k: number) => ({
       "icon-image": ["get", "icon"], "icon-rotate": ["get", "trk"], "icon-size": size(k), "icon-allow-overlap": true, "icon-ignore-placement": true,
@@ -64,29 +80,32 @@ export class PlaneLayer {
     const font = ["Noto Sans Regular"];
 
     const add = (l: maplibregl.LayerSpecification) => { if (!m.getLayer(l.id)) m.addLayer(l); };
-    add({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round" }, paint: { "line-color": c.route, "line-width": 1.5, "line-dasharray": [2, 3], "line-opacity": 0.9 } });
+    add({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round" }, paint: { "line-color": c.route, "line-width": 1.6, "line-dasharray": [1.5, 2.5], "line-opacity": 0.85 } });
+    add({ id: "trail-casing", type: "line", source: "trail", layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": c.casing, "line-opacity": 0.55, "line-width": ["interpolate", ["linear"], ["zoom"], 2, 4, 10, 6] } });
     add({ id: "trail", type: "line", source: "trail", layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": ["interpolate", ["linear"], ["coalesce", ["get", "alt"], 0], ...altRamp(theme === "dark").flat()] as maplibregl.ExpressionSpecification,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 2, 2, 10, 3] } });
+      paint: { "line-color": ["interpolate", ["linear"], ["coalesce", ["get", "alt"], 0], ...ramp] as maplibregl.ExpressionSpecification,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 2, 2, 10, 3.2] } });
     add({ id: "planes", type: "symbol", source: "planes", layout: iconLayout(1),
       paint: { "icon-color": altColor, "icon-opacity": ["get", "op"], "icon-halo-color": c.halo, "icon-halo-width": 0.8, "icon-halo-blur": 0 } });
     add({ id: "plane-labels", type: "symbol", source: "planes", minzoom: 8,
       layout: { "text-field": ["get", "cs"], "text-font": font, "text-size": 11, "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true },
       paint: { "text-color": c.label, "text-halo-color": c.labelHalo, "text-halo-width": 1.2, "text-opacity": ["get", "op"] } });
-    add({ id: "airport-dots", type: "circle", source: "points", paint: { "circle-radius": 4, "circle-color": c.dot, "circle-stroke-color": accent, "circle-stroke-width": 1.5 } });
+    add({ id: "airport-dots", type: "circle", source: "points", paint: { "circle-radius": 4.5, "circle-color": c.dot, "circle-stroke-color": accent, "circle-stroke-width": 1.8 } });
     add({ id: "airport-names", type: "symbol", source: "points",
-      layout: { "text-field": ["get", "name"], "text-font": font, "text-size": 12, "text-offset": [0, -1.2], "text-anchor": "bottom", "text-allow-overlap": true },
-      paint: { "text-color": c.label, "text-halo-color": c.labelHalo, "text-halo-width": 1.5 } });
+      layout: { "text-field": ["get", "name"], "text-font": ["Noto Sans Bold"], "text-size": 12, "text-letter-spacing": 0.06, "text-offset": [0, -1.2], "text-anchor": "bottom", "text-allow-overlap": true },
+      paint: { "text-color": accent, "text-halo-color": c.labelHalo, "text-halo-width": 1.6 } });
     add({ id: "atc-dots", type: "circle", source: "atc", minzoom: 2, layout: { visibility: this.atcVisible ? "visible" : "none" },
-      paint: { "circle-radius": 4, "circle-color": accent, "circle-opacity": 0.9, "circle-stroke-color": c.dot, "circle-stroke-width": 1.5 } });
+      paint: { "circle-radius": 3.6, "circle-color": accent, "circle-opacity": 0.85, "circle-stroke-color": c.dot, "circle-stroke-width": 1.4 } });
     add({ id: "atc-names", type: "symbol", source: "atc", minzoom: 4, layout: { "text-field": ["get", "icao"], "text-font": font, "text-size": 11, "text-offset": [0, 0.9], "text-anchor": "top", visibility: this.atcVisible ? "visible" : "none" },
       paint: { "text-color": c.label, "text-halo-color": c.labelHalo, "text-halo-width": 1.2 } });
-    add({ id: "sel-ring", type: "circle", source: "sel", paint: { "circle-radius": 17, "circle-color": accent, "circle-opacity": 0.12, "circle-stroke-color": accent, "circle-stroke-width": 1.5, "circle-pitch-alignment": "viewport" } });
-    add({ id: "sel-icon", type: "symbol", source: "sel", layout: iconLayout(1.3),
-      paint: { "icon-color": altColor, "icon-halo-color": c.halo, "icon-halo-width": 1.2 } });
+    add({ id: "atc-live", type: "circle", source: "atc-live", paint: { "circle-radius": 5.5, "circle-color": accent, "circle-stroke-color": c.dot, "circle-stroke-width": 2 } });
+    add({ id: "sel-ring", type: "circle", source: "sel", paint: { "circle-radius": 19, "circle-color": accent, "circle-opacity": 0.1, "circle-stroke-color": accent, "circle-stroke-width": 1.4, "circle-stroke-opacity": 0.9, "circle-pitch-alignment": "viewport" } });
+    add({ id: "sel-icon", type: "symbol", source: "sel", layout: iconLayout(1.35),
+      paint: { "icon-color": altColor, "icon-halo-color": accent, "icon-halo-width": 1.6 } });
 
     this.push("sel", this.selData); this.push("trail", this.trailData); this.push("route", this.routeData);
-    this.push("points", this.pointsData); this.push("atc", this.atcData);
+    this.push("points", this.pointsData); this.push("atc", this.atcData); this.push("atc-live", this.atcLiveData);
     this.dirty = true;
   }
 
@@ -100,6 +119,7 @@ export class PlaneLayer {
     this.push("sel", EMPTY);
     this.dirty = true;
     this.setDetail([], null, null, false);
+    if (!hex) { this.selMarker?.remove(); this.selMarker = null; }
   }
 
   setAtc(points: { icao: string; lat: number; lon: number }[]) {
@@ -109,6 +129,14 @@ export class PlaneLayer {
   setAtcVisible(v: boolean) {
     this.atcVisible = v;
     for (const id of ["atc-dots", "atc-names"]) if (this.map.getLayer(id)) this.map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
+  }
+  /** Mark the airport whose radio is playing (soft pulsing ring), or clear it. */
+  setAtcLive(p: { lat: number; lon: number } | null) {
+    this.atcLiveData = p ? { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] }, properties: {} }] } : EMPTY;
+    this.push("atc-live", this.atcLiveData);
+    if (!p) { this.atcMarker?.remove(); this.atcMarker = null; return; }
+    if (!this.atcMarker) this.atcMarker = new maplibregl.Marker({ element: pulseEl("atc"), pitchAlignment: "viewport", rotationAlignment: "viewport" }).setLngLat([p.lon, p.lat]).addTo(this.map);
+    else this.atcMarker.setLngLat([p.lon, p.lat]);
   }
 
   /** Trail + route endpoints from the latest detail response. `showRoute` is false when the route is unconfirmed. */
@@ -127,7 +155,7 @@ export class PlaneLayer {
 
   private head: { lat: number; lon: number; alt: number } | null = null;
   private refreshOverlay(force = false, t = performance.now()) {
-    if (!force && t - this.lastOverlay < 500) return;
+    if (!force && t - this.lastOverlay < (this.moving() ? 1000 : 500)) return;
     this.lastOverlay = t;
     const feats: object[] = [];
     const pts = this.trailPts;
@@ -155,6 +183,9 @@ export class PlaneLayer {
 
   markDirty() { this.dirty = true; }
 
+  /** Camera in motion (drag, flyTo…): fleet updates are throttled so tile decoding gets the workers and the main thread. */
+  private moving() { return this.map.isMoving() || this.map.isEasing(); }
+
   private shapes = new Map<string, Shape>();
   private shapeFor(cat: string | null, type: string | null): Shape {
     const k = `${cat}|${type}`;
@@ -181,10 +212,36 @@ export class PlaneLayer {
 
   private mainInterval(z: number) { return z < 3 ? 2500 : z < 5 ? 1200 : z < 7 ? 600 : z < 9 ? 300 : 150; }
 
+  /**
+   * Nearest plane to a screen point, among what is currently drawn (fleet positions as last pushed + the animated
+   * selected plane). Returns the hex or null. `radius` in CSS px.
+   */
+  pick(pt: { x: number; y: number }, radius: number): string | null {
+    const m = this.map;
+    const c = m.unproject([pt.x, pt.y]);
+    if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return null;
+    const a = m.unproject([pt.x + radius, pt.y]), b = m.unproject([pt.x, pt.y + radius]);
+    const dLat = Math.max(Math.abs(a.lat - c.lat), Math.abs(b.lat - c.lat)) * 1.7 + 0.01;
+    const dLon = Math.max(Math.abs(wrapDiff(a.lng, c.lng)), Math.abs(wrapDiff(b.lng, c.lng))) * 1.7 + 0.01;
+    let best: string | null = null, bd = radius * radius;
+    const test = (f: F) => {
+      const [lon, lat] = f.geometry.coordinates;
+      if (Math.abs(lat - c.lat) > dLat || Math.abs(wrapDiff(lon, c.lng)) > dLon) return;
+      const p = m.project([lon, lat]);
+      // ground traffic is drawn faint and small: it loses ties against airborne aircraft
+      const d = (p.x - pt.x) ** 2 + (p.y - pt.y) ** 2 + (f.properties.op < 0.6 ? 16 : 0);
+      if (d < bd) { bd = d; best = f.properties.hex; }
+    };
+    for (const f of this.rendered) test(f);
+    if (this.sel) test(this.sel);
+    return best;
+  }
+
   /** Call from requestAnimationFrame. Cheap unless an update is due. */
   frame(t: number) {
     const now = serverNow();
-    if (this.selected && t - this.lastSel >= 33) {
+    const moving = this.moving();
+    if (this.selected && t - this.lastSel >= (moving ? 66 : 33)) {
       this.lastSel = t;
       const tr = this.store.get(this.selected);
       if (tr) {
@@ -197,12 +254,17 @@ export class PlaneLayer {
         this.push("sel", this.selData);
         this.head = { lat, lon, alt: tr.gnd ? 0 : tr.alt ?? 0 };
         this.refreshOverlay(false, t);
+        if (!reducedMotion()) {
+          if (!this.selMarker) this.selMarker = new maplibregl.Marker({ element: pulseEl("sel"), pitchAlignment: "viewport", rotationAlignment: "viewport" }).setLngLat([lon, lat]).addTo(this.map);
+          else this.selMarker.setLngLat([lon, lat]);
+        }
         this.onSelectedMove?.(lat, lon);
       }
     }
     const z = this.map.getZoom();
     if (this.inflight && t - this.inflight > 2000) this.inflight = 0;
-    if (this.inflight || (!this.dirty && t - this.lastMain < this.mainInterval(z)) || t - this.lastMain < 90) return;
+    const interval = moving ? Math.max(450, this.mainInterval(z)) : this.mainInterval(z);
+    if (this.inflight || (!this.dirty && t - this.lastMain < interval) || t - this.lastMain < (moving ? 450 : 90)) return;
     this.lastMain = t; this.dirty = false;
     this.updateMain(now, z);
   }
@@ -231,6 +293,7 @@ export class PlaneLayer {
       feats.push(this.feature(tr, now));
     }
     if (this.cache.size > this.store.size * 1.5 + 200) for (const k of this.cache.keys()) if (!this.store.has(k)) this.cache.delete(k);
+    this.rendered = feats;
     this.inflight = performance.now();
     this.push("planes", { type: "FeatureCollection", features: feats });
   }
