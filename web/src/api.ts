@@ -3,22 +3,75 @@ import { type Plane, type Snapshot, decodeRows } from "./lib/core";
 
 export interface Airport { icao: string; iata: string | null; name: string | null; city: string | null; country: string | null; lat: number; lon: number }
 export interface Aircraft { registration: string | null; type: string | null; type_name: string | null; manufacturer: string | null; operator: string | null; operator_icao: string | null; owner: string | null; country: string | null }
-export interface Route { callsign: string | null; airline: string | null; airline_iata?: string | null; airline_icao?: string | null; origin: Airport | null; destination: Airport | null; plausible: boolean }
+export interface Route {
+  callsign: string | null; airline: string | null; airline_iata?: string | null; airline_icao?: string | null;
+  origin: Airport | null; destination: Airport | null; plausible: boolean;
+  /** Where the route comes from: FR24 (confirmed live flight) or adsbdb (often stale). */
+  source?: "adsbdb" | "fr24" | null; fr24_id?: string;
+}
 export interface Photo { thumb: string; large: string; photographer: string; link: string }
 export type TrailPoint = [lat: number, lon: number, alt: number | null, ts: number];
+export interface Fr24Info { state: string; credits_remaining?: number | null; credits_daily?: number | null }
+export interface FullTrackInfo { available: boolean; cost: number; reason: string | null }
 export interface Detail {
   plane: Plane & { pos_type?: string | null; country?: string | null };
+  /** Epoch seconds when the estimate started (null unless plane.est). */
+  estimated_since?: number | null;
   trail: TrailPoint[]; aircraft: Aircraft | null; route: Route | null; photo: Photo | null;
+  fr24?: Fr24Info | null; full_track?: FullTrackInfo | null;
 }
 export interface Feed { state: string; mode?: string; last_ok: number | null; next_poll?: number | null; interval?: number; credits_remaining?: number | null; credits_daily?: number | null; last_error: string | null }
-export interface Status { planes: number; v: number; t: number; feeds: Record<string, Feed> }
+export interface Status {
+  planes: number; v: number; t: number; feeds: Record<string, Feed>;
+  estimated?: number; alerts?: number; fr24?: Fr24Info & { credits_used?: number };
+}
 export interface Weather { temp_c: number | null; wind_kt: number | null; wind_dir: number | null; cloud_pct: number | null; level: string | null; time: number }
 export interface AtcFeed { id: string; label: string }
 export interface AtcAirport { icao: string; name: string; city: string | null; country: string | null; lat: number; lon: number; feeds: AtcFeed[] }
 
+export interface Alert {
+  hex: string; cs: string | null; squawk: string; kind: "hijack" | "radio_failure" | "emergency";
+  lat: number; lon: number; alt: number | null; type: string | null; reg: string | null; gnd: boolean;
+}
+export interface Metar {
+  icao: string; name?: string | null; lat?: number; lon?: number; time?: number | null; raw: string | null;
+  wind_dir: number | null; wind_variable?: boolean; wind_kt: number | null; gust_kt: number | null;
+  vis_sm?: number | null; vis_km: number | null; ceiling_ft: number | null; clouds: { cover: string; base_ft: number | null }[];
+  weather?: string | null; temp_c: number | null; dew_c: number | null; qnh_hpa: number | null; flight_category: string | null;
+}
+export interface WindsResponse {
+  t: number; level: string; unit: string; bbox: [number, number, number, number]; step: number; nx: number; ny: number;
+  lats: number[]; lons: number[]; u: (number | null)[]; v: (number | null)[];
+}
+export interface AirportInfo { icao: string; iata: string | null; name: string; city: string | null; country: string | null; lat: number; lon: number; elev_ft: number | null; type: string }
+export interface Runway {
+  le_ident: string | null; he_ident: string | null; le_heading: number | null; he_heading: number | null;
+  length_ft: number | null; width_ft: number | null; surface: string | null; lighted: boolean | null;
+  le_lat: number | null; le_lon: number | null; he_lat: number | null; he_lon: number | null;
+}
+export interface BoardPlane {
+  hex: string; cs: string | null; type: string | null; reg: string | null; lat: number; lon: number; alt: number | null; gs: number | null;
+  vr: number | null; gnd: boolean; est?: boolean; dist_nm: number; basis: string; phase: string;
+  origin?: Partial<Airport> | null; destination?: Partial<Airport> | null; eta_s: number | null; eta_ts: number | null;
+}
+export interface AirportBoard {
+  t: number; airport: AirportInfo & { runways: Runway[] };
+  arrivals: BoardPlane[]; departures: BoardPlane[]; metar: Metar | null;
+}
+export interface FullTrack { hex: string; fr24_id: string; cached: boolean; points: TrailPoint[]; fr24?: Fr24Info }
+
+/** Failed request: HTTP status and, when the body carries one, the machine reason (e.g. "budget"). */
+export class ApiError extends Error {
+  constructor(public status: number, public reason: string | null = null) { super(`${status}${reason ? ` ${reason}` : ""}`); }
+}
+
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init);
-  if (!r.ok) throw new Error(`${r.status}`);
+  if (!r.ok) {
+    let reason: string | null = null;
+    try { reason = ((await r.json()) as { reason?: string }).reason ?? null; } catch { /* no body */ }
+    throw new ApiError(r.status, reason);
+  }
   return r.json() as Promise<T>;
 }
 
@@ -61,7 +114,9 @@ export async function fetchAircraft(hex: string): Promise<Detail | null> {
   const r = await fetch(`/api/aircraft/${hex}`);
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`${r.status}`);
-  return r.json();
+  const d = (await r.json()) as Detail;
+  if (d.plane?.est) d.plane.rts = serverNow(); // the position is valid for "now": reckoning for estimated planes starts here, not at ts
+  return d;
 }
 
 export async function fetchStatus(): Promise<Status> {
@@ -107,3 +162,13 @@ export class Loop {
     if (next !== null) this.timer = setTimeout(() => void this.run(), next);
   }
 }
+
+export const fetchAlerts = async () => (await json<{ alerts: Alert[] }>("/api/alerts")).alerts ?? [];
+export const fetchMetars = async (bbox: [number, number, number, number], signal?: AbortSignal) =>
+  (await json<{ stations: Metar[] }>(`/api/metar?bbox=${bbox.map((n) => n.toFixed(2)).join(",")}&limit=60`, { signal })).stations ?? [];
+export const fetchWinds = (bbox: [number, number, number, number], level: string, signal?: AbortSignal) =>
+  json<WindsResponse>(`/api/winds?bbox=${bbox.map((n) => n.toFixed(2)).join(",")}&level=${encodeURIComponent(level)}`, { signal });
+export const fetchAirports = async (q: string, signal?: AbortSignal) =>
+  (await json<{ airports: AirportInfo[] }>(`/api/airports?q=${encodeURIComponent(q)}&limit=6`, { signal })).airports ?? [];
+export const fetchAirportBoard = (code: string, signal?: AbortSignal) => json<AirportBoard>(`/api/airport/${encodeURIComponent(code)}`, { signal });
+export const fetchFullTrack = (hex: string) => json<FullTrack>(`/api/aircraft/${hex}/full-track`);

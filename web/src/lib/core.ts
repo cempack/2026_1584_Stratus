@@ -3,6 +3,10 @@
 export interface Plane {
   hex: string; cs: string | null; lat: number; lon: number; alt: number | null; gs: number | null; trk: number | null;
   vr: number | null; gnd: boolean; ts: number; src: string; type: string | null; reg: string | null; cat: string | null; sqk: string | null;
+  /** Estimated position (the backend moved the plane along its route after losing it). `ts` stays the last REAL fix. */
+  est?: boolean;
+  /** For estimated planes: the time (server epoch s) the position is valid for; dead reckoning starts there, never at `ts`. */
+  rts?: number;
 }
 export interface Snapshot { v: number; t: number; fields: string[]; rows: unknown[][] }
 
@@ -11,18 +15,20 @@ export interface Track extends Plane { ex: number; ey: number; easeStart: number
 
 export function decodeRows(s: Snapshot): Plane[] {
   const idx = (f: string) => s.fields.indexOf(f);
-  const I = Object.fromEntries(["hex", "cs", "lat", "lon", "alt", "gs", "trk", "vr", "gnd", "ts", "src", "type", "reg", "cat", "sqk"].map((f) => [f, idx(f)]));
+  const I = Object.fromEntries(["hex", "cs", "lat", "lon", "alt", "gs", "trk", "vr", "gnd", "ts", "src", "type", "reg", "cat", "sqk", "est"].map((f) => [f, idx(f)]));
   const g = (r: unknown[], f: string) => (I[f] < 0 ? null : r[I[f]]);
   const out: Plane[] = [];
   for (const r of s.rows) {
     const lat = g(r, "lat"), lon = g(r, "lon"), ts = g(r, "ts");
     if (typeof lat !== "number" || typeof lon !== "number" || typeof ts !== "number") continue;
+    const est = g(r, "est") === true;
     out.push({
       hex: String(g(r, "hex")).toLowerCase(), cs: (g(r, "cs") as string | null) ?? null, lat, lon,
       alt: (g(r, "alt") as number | null) ?? null, gs: (g(r, "gs") as number | null) ?? null, trk: (g(r, "trk") as number | null) ?? null,
       vr: (g(r, "vr") as number | null) ?? null, gnd: g(r, "gnd") === true, ts, src: String(g(r, "src") ?? ""),
       type: (g(r, "type") as string | null) ?? null, reg: (g(r, "reg") as string | null) ?? null,
       cat: (g(r, "cat") as string | null) ?? null, sqk: (g(r, "sqk") as string | null) ?? null,
+      ...(est ? { est: true, rts: s.t } : {}),
     });
   }
   return out;
@@ -78,7 +84,8 @@ export function unwrap(pts: [number, number][]): [number, number][] {
 /** Dead-reckoned raw position (no easing): airborne only, capped at MAX_DR_S. */
 export function reckon(p: Plane, now: number): [number, number] {
   if (p.gnd || !p.gs || p.trk == null) return [p.lat, p.lon];
-  const dt = Math.min(MAX_DR_S, Math.max(0, now - p.ts));
+  if (p.est && p.rts == null) return [p.lat, p.lon];
+  const dt = Math.min(MAX_DR_S, Math.max(0, now - (p.est ? p.rts! : p.ts)));
   return destination(p.lat, p.lon, p.trk, (p.gs * dt) / 3600);
 }
 
@@ -93,19 +100,26 @@ export function renderPos(t: Track, now: number): [number, number] {
  * Merge an observation into the store. Position replaced only when `ts` is newer; metadata filled from
  * whichever source has it. Returns true if the plane changed.
  */
+/** Does observation `p` replace the stored position `cur`? Estimated rows keep the last real `ts`, so they compare on `rts`. */
+export function isNewer(p: Plane, cur: Plane): boolean {
+  if (p.est) return cur.est ? (p.rts ?? p.ts) > (cur.rts ?? cur.ts) : p.ts >= cur.ts;
+  return p.ts > cur.ts;
+}
+
 export function mergePlane(store: Map<string, Track>, p: Plane, now: number, ease = true): boolean {
   const cur = store.get(p.hex);
   if (!cur) {
     store.set(p.hex, { ...p, ex: 0, ey: 0, easeStart: 0 });
     return true;
   }
-  if (p.ts <= cur.ts) {
+  if (!isNewer(p, cur)) {
     cur.cs ??= p.cs; cur.type ??= p.type; cur.reg ??= p.reg; cur.cat ??= p.cat; cur.sqk ??= p.sqk;
     return false;
   }
   const [oldLat, oldLon] = renderPos(cur, now);
   Object.assign(cur, {
     ...p, cs: p.cs ?? cur.cs, type: p.type ?? cur.type, reg: p.reg ?? cur.reg, cat: p.cat ?? cur.cat, sqk: p.sqk ?? cur.sqk,
+    est: !!p.est, rts: p.rts,
   });
   const [newLat, newLon] = reckon(cur, now);
   let dx = oldLon - newLon;
