@@ -205,7 +205,8 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
                 resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
             return resp
         if path.startswith("assets/"):
-            abort(404)
+            # no-store: a CDN must not cache a miss during a deploy rollover.
+            return Response("not found", 404, {"Cache-Control": "no-store"}, mimetype="text/plain")
         resp = send_from_directory(dist, "index.html")
         resp.headers["Cache-Control"] = "no-cache"
         return resp
