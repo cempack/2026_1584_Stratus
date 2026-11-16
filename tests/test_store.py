@@ -97,7 +97,7 @@ def test_snapshot_is_built_once_per_version_and_etag_changes():
     body = json.loads(raw)
     assert gzip.decompress(gz) == raw and body["v"] == v and body["fields"] == FIELDS
     assert body["rows"] == [["3c6444", "DLH4AB", 48.0, 11.0, 30000, None, None, None, False, T0, "opensky", "A320",
-                             "D-AIZB", "A3", "1000"]]
+                             "D-AIZB", "A3", "1000", False]]
     s.apply([obs(T0 + 10, lat=48.01)])
     assert s.snapshot()[3] != etag
     s.apply([obs(T0 + 10, lat=40.0)])  # ignored (not newer): version and snapshot unchanged

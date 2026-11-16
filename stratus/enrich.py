@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
@@ -18,6 +19,7 @@ PHOTO_URL = "https://api.planespotters.net/pub/photos/hex/{hex}"
 TTL_OK = {"aircraft": 24 * 3600, "route": 6 * 3600, "photo": 12 * 3600}
 TTL_MISS = {"aircraft": 6 * 3600, "route": 3600, "photo": 6 * 3600}
 TTL_ERROR = 120
+AIRLINE_CALLSIGN = re.compile(r"^[A-Z]{3}[0-9]{1,4}[A-Z]{0,2}$")  # worth a route lookup (not a registration)
 
 
 def _s(v):
@@ -59,7 +61,7 @@ def parse_route(body: dict) -> dict | None:
         return None
     airline = r.get("airline") if isinstance(r.get("airline"), dict) else {}
     return {"callsign": norm_callsign(r.get("callsign")), "airline": _s(airline.get("name")),
-            "origin": origin, "destination": dest}
+            "origin": origin, "destination": dest, "source": "adsbdb"}
 
 
 def parse_photo(body: dict) -> dict | None:
@@ -102,8 +104,9 @@ def route_plausible(route: dict, lat: float, lon: float, gnd: bool = False) -> b
 
 
 class Enricher:
-    def __init__(self, session, workers: int = 4):
+    def __init__(self, session, workers: int = 4, fr24=None):
         self.http = session
+        self.fr24 = fr24 if fr24 is not None and fr24.enabled else None
         self.cache = TTLCache(30_000)
         self.pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="enrich")
         self._pending: set = set()
@@ -139,10 +142,66 @@ class Enricher:
     def aircraft(self, hx: str):
         return self._get("aircraft", hx, AIRCRAFT_URL.format(hex=hx), parse_aircraft)
 
-    def route(self, cs: str | None):
+    def _fr24_lookup(self, cs: str, hx: str | None) -> None:
+        try:
+            self.cache.set(("route-fr24", cs), self.fr24.route(cs, hx), 6 * 3600)  # fr24 also caches its own TTLs
+        except Exception as exc:  # Fr24Unavailable (budget, rate, auth...) or network: fall back to adsbdb
+            log.debug("fr24 route %s skipped: %s", cs, exc)
+            self.cache.set(("route-fr24", cs), None, 30 if getattr(exc, "reason", "") in ("rate", "network") else 300)
+        finally:
+            with self._lock:
+                self._pending.discard(("route-fr24", cs))
+
+    def route(self, cs: str | None, selected: bool = False, hx: str | None = None):
+        """Route for a callsign. With FR24 configured and `selected` (the user opened this plane) FR24 is asked first;
+        otherwise, or when FR24 has nothing, adsbdb. Never blocks: unknown results are filled in the background."""
         if not cs:
             return None
+        if selected and self.fr24 is not None and self.fr24.usable():
+            val = self.cache.get(("route-fr24", cs), MISSING)
+            if val is MISSING:
+                with self._lock:
+                    first = ("route-fr24", cs) not in self._pending
+                    self._pending.add(("route-fr24", cs))
+                if first:
+                    self.pool.submit(self._fr24_lookup, cs, hx)
+            elif val:
+                return val
         return self._get("route", cs, CALLSIGN_URL.format(cs=quote(cs)), parse_route)
+
+    def cached_route(self, cs: str | None) -> dict | None:
+        """Best route already in the cache (FR24 first), never triggers a lookup. Used by estimation."""
+        if not cs:
+            return None
+        return self.cache.get(("route-fr24", cs), None) or self.cache.get(("route", cs), None)
+
+    def route_known(self, cs: str) -> bool:
+        return self.cache.has(("route", cs)) or ("route", cs) in self._pending
+
+    def prefetch_candidates(self, store, now: float, limit: int) -> list[str]:
+        """Callsigns worth a background route lookup: airborne planes at cruise-ish level, planes not seen for more
+        than 60 s first (they are the ones estimation needs a route for)."""
+        with store.lock:
+            rows = [(p.cs, now - p.ts) for p in store.planes.values()
+                    if p.cs and not p.gnd and p.alt is not None and p.alt >= 10_000 and not p.est]
+        prio = sorted((r for r in rows if r[1] > 60), key=lambda r: r[1])
+        rest = [r for r in rows if r[1] <= 60]
+        out: list[str] = []
+        for cs, _ in prio + rest:
+            if len(out) >= limit:
+                break
+            if cs in out or not AIRLINE_CALLSIGN.match(cs) or self.route_known(cs):
+                continue
+            out.append(cs)
+        return out
+
+    def prefetch(self, store, now: float, limit: int = 3) -> int:
+        if len(self._pending) > 12:
+            return 0
+        cands = self.prefetch_candidates(store, now, limit)
+        for cs in cands:
+            self.route(cs)
+        return len(cands)
 
     def photo(self, hx: str):
         return self._get("photo", hx, PHOTO_URL.format(hex=hx), parse_photo)

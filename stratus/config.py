@@ -18,6 +18,21 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    try:
+        return float(raw) if raw else default
+    except ValueError:
+        return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw not in ("0", "false", "no", "off")
+
+
 @dataclass
 class Config:
     opensky_client_id: str = ""
@@ -27,6 +42,11 @@ class Config:
     data_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "data")
     web_dist: Path = field(default_factory=lambda: PROJECT_ROOT / "web" / "dist")
     port: int = 8090
+    fr24_token: str = ""  # env FR24_API_TOKEN; empty = FR24 disabled, nothing changes
+    fr24_daily_credits: int = 900
+    sweep_enabled: bool = True
+    sweep_interval: float = 1.5
+    estimates_enabled: bool = True
 
     @property
     def cache_dir(self) -> Path:
@@ -49,6 +69,11 @@ class Config:
             opensky_client_secret=os.environ.get("OPENSKY_CLIENT_SECRET", "").strip(),
             opensky_daily_credits=_env_int("OPENSKY_DAILY_CREDITS", 4000),
             port=_env_int("PORT", 8090),
+            fr24_token=os.environ.get("FR24_API_TOKEN", "").strip(),
+            fr24_daily_credits=_env_int("FR24_DAILY_CREDITS", 900),
+            sweep_enabled=_env_bool("STRATUS_SWEEP", True),
+            sweep_interval=_env_float("STRATUS_SWEEP_INTERVAL", 1.5),
+            estimates_enabled=_env_bool("STRATUS_ESTIMATES", True),
         )
         if data_dir:
             cfg.data_dir = Path(data_dir)
