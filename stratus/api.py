@@ -178,7 +178,7 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
 
         def generate():
             try:
-                for chunk in upstream.iter_content(16384):
+                for chunk in upstream.iter_content(1024):
                     if chunk:
                         yield chunk
             finally:
