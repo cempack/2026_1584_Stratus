@@ -3,7 +3,7 @@ import { type Plane, type Snapshot, decodeRows } from "./lib/core";
 
 export interface Airport { icao: string; iata: string | null; name: string | null; city: string | null; country: string | null; lat: number; lon: number }
 export interface Aircraft { registration: string | null; type: string | null; type_name: string | null; manufacturer: string | null; operator: string | null; operator_icao: string | null; owner: string | null; country: string | null }
-export interface Route { callsign: string | null; airline: string | null; origin: Airport | null; destination: Airport | null; plausible: boolean }
+export interface Route { callsign: string | null; airline: string | null; airline_iata?: string | null; airline_icao?: string | null; origin: Airport | null; destination: Airport | null; plausible: boolean }
 export interface Photo { thumb: string; large: string; photographer: string; link: string }
 export type TrailPoint = [lat: number, lon: number, alt: number | null, ts: number];
 export interface Detail {
@@ -26,10 +26,21 @@ let skew = 0; // server clock minus client clock (s); plane timestamps are serve
 export const serverNow = () => Date.now() / 1000 + skew;
 const noteClock = (t: number) => { if (Number.isFinite(t)) skew = t - Date.now() / 1000; };
 
+declare global { interface Window { __boot?: { planes?: Promise<Response>; status?: Promise<Response> } } }
+/** The first request of each kind is started by an inline script in index.html, in parallel with the bundle and the style. */
+function prefetched(kind: "planes" | "status"): Promise<Response> | null {
+  const p = window.__boot?.[kind] ?? null;
+  if (window.__boot) delete window.__boot[kind];
+  return p;
+}
+
 let etag: string | null = null;
 /** Full snapshot; returns null on 304 (nothing new). */
 export async function fetchPlanes(): Promise<Plane[] | null> {
-  const r = await fetch("/api/planes", etag ? { headers: { "If-None-Match": etag } } : undefined);
+  let r: Response;
+  const early = prefetched("planes");
+  try { r = early ? await early : await fetch("/api/planes", etag ? { headers: { "If-None-Match": etag } } : undefined); }
+  catch { r = await fetch("/api/planes", etag ? { headers: { "If-None-Match": etag } } : undefined); }
   if (r.status === 304) return null;
   if (!r.ok) throw new Error(`${r.status}`);
   etag = r.headers.get("ETag") ?? null;
@@ -53,10 +64,14 @@ export async function fetchAircraft(hex: string): Promise<Detail | null> {
   return r.json();
 }
 
-export const fetchStatus = () => json<Status>("/api/status");
+export async function fetchStatus(): Promise<Status> {
+  const early = prefetched("status");
+  if (early) { try { const r = await early; if (r.ok) return (await r.json()) as Status; } catch { /* regular request below */ } }
+  return json<Status>("/api/status");
+}
 export const fetchWeather = (lat: number, lon: number, alt: number | null) =>
   json<Weather>(`/api/weather?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}&alt=${Math.round(alt ?? 0)}`);
-export const fetchAtc = async () => (await json<{ airports: AtcAirport[] }>("/api/atc/airports")).airports;
+export const fetchAtc = async (signal?: AbortSignal) => (await json<{ airports: AtcAirport[] }>("/api/atc/airports", { signal })).airports ?? [];
 export const atcAudioUrl = (icao: string, feed: string) => `/api/atc/audio?icao=${encodeURIComponent(icao)}&feed=${encodeURIComponent(feed)}`;
 
 /**

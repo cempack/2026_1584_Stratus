@@ -12,6 +12,10 @@ const STROKE: Record<string, string> = {
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   locate: '<circle cx="12" cy="12" r="3.5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
   volume: '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6"/>',
+  layers: '<path d="m12 3.5 9 5-9 5-9-5z"/><path d="m3 13.2 9 5 9-5"/>',
+  chevup: '<path d="m6 14.5 6-6 6 6"/>',
+  arrowup: '<path d="M12 19V5.5M6.5 11 12 5.5l5.5 5.5"/>',
+  arrowdown: '<path d="M12 5v13.5M6.5 13 12 18.5l5.5-5.5"/>',
   pin: '<path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.2"/>',
 };
 const FILL: Record<string, string> = {

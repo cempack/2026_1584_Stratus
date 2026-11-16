@@ -1,27 +1,25 @@
-// Light / dark: follows the system until the user picks one; picking the system's own value clears the override.
+// Light / dark. Light is the default; the user's explicit choice is remembered (the system preference does not decide).
 import type { Theme } from "../map/style";
 import { icon } from "./icons";
 
 const KEY = "stratus.theme";
-const mq = matchMedia("(prefers-color-scheme: dark)");
-const system = (): Theme => (mq.matches ? "dark" : "light");
-const read = (): Theme | null => { try { const v = localStorage.getItem(KEY); return v === "light" || v === "dark" ? v : null; } catch { return null; } };
+const read = (): Theme => { try { return localStorage.getItem(KEY) === "dark" ? "dark" : "light"; } catch { return "light"; } };
 
-export const currentTheme = (): Theme => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
+export const currentTheme = (): Theme => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 
 export function initTheme(onChange: (t: Theme) => void) {
   const btn = document.getElementById("btn-theme")!;
   const apply = (t: Theme, notify: boolean) => {
     document.documentElement.dataset.theme = t;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#070a11" : "#eef1f6");
     btn.innerHTML = icon(t === "dark" ? "sun" : "moon");
     btn.setAttribute("aria-label", t === "dark" ? "Passer au thème clair" : "Passer au thème sombre");
     if (notify) onChange(t);
   };
-  apply(read() ?? system(), false);
+  apply(read(), false);
   btn.addEventListener("click", () => {
     const next: Theme = currentTheme() === "dark" ? "light" : "dark";
-    try { if (next === system()) localStorage.removeItem(KEY); else localStorage.setItem(KEY, next); } catch { /* private mode */ }
+    try { localStorage.setItem(KEY, next); } catch { /* private mode */ }
     apply(next, true);
   });
-  mq.addEventListener("change", () => { if (!read()) apply(system(), true); });
 }
