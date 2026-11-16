@@ -16,7 +16,16 @@ const STROKE: Record<string, string> = {
   chevup: '<path d="m6 14.5 6-6 6 6"/>',
   arrowup: '<path d="M12 19V5.5M6.5 11 12 5.5l5.5 5.5"/>',
   arrowdown: '<path d="M12 5v13.5M6.5 13 12 18.5l5.5-5.5"/>',
-  pin: '<path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.2"/>',
+  tower: '<path d="M9.8 21 11 12.5M14.2 21 13 12.5"/><path d="M8.5 12.5 7.5 7.5h9l-1 5z"/><path d="M12 7.5V3M10 10h4M8.5 21h7"/>',
+  runway: '<path d="M9 4 5 20M15 4l4 16"/><path d="M12 6v2.5M12 11.5v2M12 16.5V19"/>',
+  approach: '<path d="M3.5 6.5 17 15"/><path d="m17 15-5.2-.3M17 15l-1.2-5.2"/><path d="M3 20h18"/>',
+  departure: '<path d="M4 16.5 18 8"/><path d="m18 8-5.3-.2M18 8l-1.3 5.2"/><path d="M3 20h18"/>',
+  atis: '<circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8v.1"/>',
+  clearance: '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9.5 5V3.8h5V5M9.2 13l2 2 3.6-4"/>',
+  center: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/><path d="m12 12 4.6-4.6"/>',
+  sliders: '<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>',
+  pin:'<path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.2"/>',
 };
 const FILL: Record<string, string> = {
   play: '<path d="M8 5.5v13l11-6.5z"/>',
