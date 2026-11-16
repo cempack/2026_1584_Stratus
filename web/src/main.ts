@@ -132,7 +132,7 @@ function sweep() {
   for (const [k, t] of store) {
     if (k === selected) continue;
     // estimated planes keep an old real `ts` on purpose; they leave when the backend stops sending them
-    if (t.est ? now - (t.rts ?? t.ts) > 150 : now - t.ts > (t.gnd ? 300 : 900)) store.delete(k);
+    if (t.est ? now - (t.rts ?? t.ts) > 400 : now - t.ts > (t.gnd ? 300 : 900)) store.delete(k);
   }
 }
 

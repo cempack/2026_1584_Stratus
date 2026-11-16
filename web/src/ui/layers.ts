@@ -70,7 +70,7 @@ export class LayersMenu {
   /** Change a preference (from the UI or, e.g., when the radar could not load). */
   setPref<K extends keyof LayerPrefs>(key: K, value: LayerPrefs[K], notify = true) {
     this.prefs = { ...this.prefs, [key]: value };
-    set(PREFS_KEY, JSON.stringify(this.prefs));
+    if (notify) set(PREFS_KEY, JSON.stringify(this.prefs)); // a silent change (e.g. the radar failed to load) is not the user's choice
     const ids: Partial<Record<keyof LayerPrefs, string>> = { radar: "lay-radar", winds: "lay-winds", metar: "lay-metar", satellite: "lay-sat", est: "lay-est" };
     const id = ids[key];
     if (id) $<HTMLInputElement>(id).checked = Boolean(value);

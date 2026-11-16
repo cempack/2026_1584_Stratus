@@ -167,7 +167,7 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .top-left { position: relative; display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; max-width: 500px; }
 .brand { display: flex; align-items: center; gap: 9px; height: 44px; flex: none; font-weight: 650; font-size: 15px; letter-spacing: -0.01em; user-select: none; text-shadow: 0 0 12px var(--glass-solid); }
 .brand-mark { width: 28px; height: 28px; border-radius: 8px; display: block; box-shadow: var(--shadow-sm); }
-.search { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; height: 44px; border-radius: 15px; transition: border-color 160ms, box-shadow 160ms; }
+.search { position: relative; z-index: 6; flex: 1; min-width: 0; display: flex; align-items: center; height: 44px; border-radius: 15px; transition: border-color 160ms, box-shadow 160ms; }
 .search:focus-within { border-color: color-mix(in oklab, var(--accent) 55%, var(--line)); box-shadow: inset 0 1px 0 var(--hi), var(--shadow-sm), 0 0 0 3px var(--accent-soft); }
 .search-icon { width: 18px; height: 18px; margin: 0 8px 0 14px; color: var(--ink-3); flex: none; }
 .search input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; outline: 0; font-size: 14px; }
