@@ -9,7 +9,9 @@
 // next feed of the same airport before offering a retry button.
 import { type AtcAirport, type AtcFeed, atcAudioUrl, fetchAtc } from "../api";
 import { norm } from "../lib/core";
+import { KIND_ICON, Meter, chipLabels, feedKind, parseFreq } from "../lib/radio";
 import { icon } from "./icons";
+import { closeOthers, registerPopover } from "./popovers";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const store = {
@@ -23,6 +25,8 @@ export interface AtcHooks {
   onPick(a: AtcAirport): void;
   /** Airport whose radio is active (connecting or playing), null when stopped. */
   onLive(a: AtcAirport | null): void;
+  /** The mini-player in the bottom slot appeared or went away. */
+  onMini?(show: boolean): void;
 }
 
 type St = "idle" | "connecting" | "live" | "buffering" | "blocked" | "error";
@@ -61,6 +65,9 @@ export class Atc {
   private hist: number[] = new Array(BARS).fill(0);
   private lastSample = 0;
   private raf = 0;
+  private meter = new Meter();
+  private rx = false;
+  private litSegments = -1;
 
   constructor(private hooks: AtcHooks) {
     this.audio.preload = "none";
@@ -75,12 +82,14 @@ export class Atc {
     });
     this.applyVolume();
 
+    registerPopover({ el: $("atc"), trigger: $("btn-atc"), isOpen: () => this.isOpen, close: () => this.close() });
+    const segs = [...$("atc-lvl").children] as HTMLElement[];
+    segs.forEach((el, i) => { el.style.height = `${6 + Math.round((i / (segs.length - 1)) * 16)}px`; });
     $("atc").querySelector("[data-close]")!.addEventListener("click", () => this.close());
     $("btn-atc").addEventListener("click", () => (this.isOpen ? this.close() : this.open()));
     $("atc-q").addEventListener("input", () => this.renderList());
     $("atc-play").addEventListener("click", () => this.toggle());
     $("atc-retry").addEventListener("click", () => this.toggle(true));
-    $("mini-play").addEventListener("click", () => this.toggle());
     $("mini-open").addEventListener("click", () => this.open());
     $("mini-stop").addEventListener("click", () => { this.stop(); this.current = null; this.feed = null; this.renderAll(); });
     $("atc-list").addEventListener("click", (e) => {
@@ -155,6 +164,7 @@ export class Atc {
   }
 
   open(icao?: string) {
+    closeOthers($("atc"));
     $("atc").hidden = false;
     $("btn-atc").setAttribute("aria-pressed", "true");
     this.hooks.onToggle(true);
@@ -202,11 +212,13 @@ export class Atc {
         an.fftSize = 512; an.smoothingTimeConstant = 0.5;
         const g = ctx.createGain();
         src.connect(an); an.connect(g); g.connect(ctx.destination);
+        // the page may be backgrounded or the browser may suspend the context: a suspended context means a silent stream
+        ctx.addEventListener("statechange", () => { if (ctx.state === "suspended" && this.wanted) void ctx.resume().catch(() => {}); });
         this.ctx = ctx; this.analyser = an; this.gain = g; this.wave = new Uint8Array(new ArrayBuffer(an.fftSize));
         this.applyVolume();
       } catch { this.ctx = undefined; this.analyser = undefined; this.gain = undefined; }
     }
-    if (this.ctx?.state === "suspended") void this.ctx.resume();
+    if (this.ctx?.state === "suspended") void this.ctx.resume().catch(() => {});
   }
 
   private applyVolume() {
@@ -288,6 +300,7 @@ export class Atc {
 
   private setSt(s: St) {
     this.st = s;
+    if (s !== "live") { this.meter.reset(); this.hist.fill(0); this.setRx(false); this.paintLevel(0); }
     clearInterval(this.ticker);
     if (s === "live" || s === "buffering") this.ticker = setInterval(() => this.renderTime(), 1000);
     this.hooks.onLive(this.isLive ? this.current : null);
@@ -307,6 +320,7 @@ export class Atc {
     $("atc").dataset.state = this.st;
     mini.dataset.state = this.st;
     document.body.classList.toggle("mini-open", !mini.hidden);
+    this.hooks.onMini?.(!mini.hidden);
     if (!a || !f) return;
     $("atc-code").textContent = a.icao;
     $("atc-title").textContent = a.name;
@@ -318,21 +332,36 @@ export class Atc {
     $("atc-note").hidden = !this.note;
     $("atc-retry").hidden = !(this.st === "error");
     const playing = this.wanted && this.st !== "error" && this.st !== "blocked";
-    for (const id of ["atc-play", "mini-play"]) {
-      const b = $(id);
-      b.innerHTML = icon(playing ? "pause" : "play");
-      b.setAttribute("aria-label", playing ? "Arrêter" : "Écouter");
-    }
+    const pb = $("atc-play");
+    pb.innerHTML = icon(playing ? "pause" : "play");
+    pb.setAttribute("aria-label", playing ? "Arrêter" : "Écouter");
     $("btn-atc").classList.toggle("live", this.isLive);
-    $("atc-feeds").replaceChildren(...a.feeds.map((x) => {
+
+    // LCD: channel kind, frequency, full label
+    const fk = feedKind(f.label), freq = parseFreq(f.label);
+    $("atc-kind").textContent = fk.name;
+    const ki = $("atc-kind-ico");
+    if (ki.dataset.k !== fk.kind) { ki.dataset.k = fk.kind; ki.innerHTML = icon(KIND_ICON[fk.kind]); }
+    const fq = $("atc-freq");
+    fq.textContent = freq ?? "---.---";
+    fq.classList.toggle("none", !freq);
+    $("atc-label").textContent = feedLabel(a, f);
+
+    // channel chips with icons: Tour, Sol, Approche, ATIS...
+    const names = chipLabels(a.icao, a.feeds.map((x) => x.label));
+    $("atc-feeds").replaceChildren(...a.feeds.map((x, i) => {
       const b = document.createElement("button");
       b.type = "button"; b.dataset.feed = x.id; b.className = "chip-feed";
       b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(x.id === f.id));
-      b.textContent = feedLabel(a, x); b.title = x.label;
+      b.innerHTML = `<span class="ci">${icon(KIND_ICON[feedKind(x.label).kind])}</span><span></span>`;
+      (b.lastElementChild as HTMLElement).textContent = names[i];
+      b.title = x.label;
       return b;
     }));
-    $("mini-code").textContent = a.icao;
-    $("mini-feed").textContent = this.st === "live" || this.st === "idle" ? feedLabel(a, f) : PILL[this.st];
+
+    // mini-player
+    $("mini-freq").textContent = freq ?? fk.name;
+    $("mini-code").textContent = this.st === "live" || this.st === "idle" ? a.icao : `${a.icao} · ${PILL[this.st]}`;
     this.renderTime();
   }
 
@@ -384,17 +413,21 @@ export class Atc {
         this.analyser.getByteTimeDomainData(this.wave);
         let sum = 0;
         for (const v of this.wave) { const d = (v - 128) / 128; sum += d * d; }
-        level = Math.min(1, Math.sqrt(sum / this.wave.length) * 3.2);
+        level = this.meter.push(Math.sqrt(sum / this.wave.length), t);
+        this.setRx(this.meter.open);
       }
       this.hist.push(level); this.hist.shift();
+      this.paintLevel(level);
       this.draw();
     }
     this.raf = requestAnimationFrame((x) => this.loop(x));
   }
 
   private draw() {
-    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#F5B544";
-    for (const id of ["atc-viz", "mini-viz"]) {
+    const css = getComputedStyle(document.documentElement);
+    const colors = { "atc-viz": css.getPropertyValue("--lcd-ink").trim() || "#F5B544", "mini-viz": css.getPropertyValue("--accent").trim() || "#F5B544" };
+    for (const id of ["atc-viz", "mini-viz"] as const) {
+      const accent = colors[id];
       const cv = $<HTMLCanvasElement>(id);
       if (cv.getClientRects().length === 0) continue;
       const dpr = Math.min(2, devicePixelRatio || 1);
@@ -418,5 +451,20 @@ export class Atc {
       }
       g.globalAlpha = 1;
     }
+  }
+
+  /** RX lamp (squelch open): lit while voice is on the channel. */
+  private setRx(on: boolean) {
+    if (on === this.rx) return;
+    this.rx = on;
+    for (const id of ["atc", "mini"]) $(id).dataset.rx = on ? "1" : "0";
+  }
+
+  /** Segmented level meter next to the frequency. */
+  private paintLevel(level: number) {
+    const segs = $("atc-lvl").children, n = Math.round(level * segs.length);
+    if (n === this.litSegments) return;
+    this.litSegments = n;
+    for (let i = 0; i < segs.length; i++) segs[i].classList.toggle("on", i < n);
   }
 }

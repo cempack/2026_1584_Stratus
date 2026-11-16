@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: api ? [] : [mockApi()],
     server: api ? { proxy: { "/api": { target: api, changeOrigin: true } } } : {},
-    build: { outDir: "dist", target: "es2022", chunkSizeWarningLimit: 1200 },
+    build: { outDir: "dist", target: "es2022", chunkSizeWarningLimit: 1500 },
     test: { include: ["src/**/*.test.ts"] },
   };
 });

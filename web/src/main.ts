@@ -2,35 +2,58 @@ import "@fontsource-variable/inter/wght.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import maplibregl from "maplibre-gl";
-import { Loop, fetchAircraft, fetchArea, fetchPlanes, fetchWeather, serverNow } from "./api";
 import {
-  type Hit, type Plane, type Searchable, type Track, ALT_STOPS, altRamp, distanceNm, fmtAlt, formatUrl, mergePlane, parseUrl, renderPos,
+  ApiError, Loop, fetchAircraft, fetchAirportBoard, fetchAirports, fetchArea, fetchFullTrack, fetchPlanes, fetchWeather, serverNow, type AirportInfo,
+} from "./api";
+import {
+  type Hit, type Plane, type Searchable, type Track, ALT_STOPS, altRamp, distanceNm, fmtAlt, formatUrl, mergePlane, parseUrl, renderPos, unwrap,
 } from "./lib/core";
+import { compileFilters } from "./lib/filters";
+import { FOLLOW_PITCH, endsFollow, lerpBearing, smoothing } from "./lib/follow";
+import { dockWidth, isPhone, mapPadding, peekHeight, slotMode } from "./lib/layout";
+import type { LayerPrefs } from "./lib/prefs";
+import { MetarFeed } from "./map/metar";
 import { PlaneLayer } from "./map/planes";
-import { Radar, type RadarUi } from "./map/radar";
+import { Radar } from "./map/radar";
 import { type Theme, buildStyle } from "./map/style";
 import { nightPolygons } from "./map/sun";
+import { WindLayer } from "./map/winds";
+import { AirportPanel } from "./ui/airport";
 import { Atc } from "./ui/atc";
-import { hydrateIcons, icon } from "./ui/icons";
+import { Credits } from "./ui/attribution";
+import { hydrateIcons } from "./ui/icons";
+import { LayersMenu, loadPrefs } from "./ui/layers";
 import { Panel } from "./ui/panel";
+import { closeTopmost } from "./ui/popovers";
+import { initRadarPill } from "./ui/radar-pill";
 import { initSearch } from "./ui/search";
 import { initStars } from "./ui/space";
 import { StatusChip } from "./ui/status";
 import { currentTheme, initTheme } from "./ui/theme";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const isMobile = () => matchMedia("(max-width: 719px)").matches;
-const lsGet = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
-const lsSet = (k: string, v: string | null) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* private mode */ } };
+const phone = () => isPhone(innerWidth);
 
 hydrateIcons();
 initStars();
 const initial = parseUrl(location.search, location.hash);
 const store = new Map<string, Track>();
 let selected: string | null = null;
+let airportCode: string | null = null;
 let follow = false;
 let pendingFly: string | null = null;
-let satellite = lsGet("stratus.sat") === "1";
+let pendingAirportFly = false;
+let prefs: LayerPrefs = loadPrefs();
+let satellite = prefs.satellite;
+
+// ---------- layout: the dock width and the sheet peek come from lib/layout (one source of truth, mirrored by CSS breakpoints) ----------
+function applyLayout() {
+  const root = document.documentElement.style;
+  root.setProperty("--dock", `${dockWidth(innerWidth) || 376}px`);
+  root.setProperty("--peek", `${peekHeight(innerHeight)}px`);
+}
+applyLayout();
+addEventListener("resize", () => { applyLayout(); if (selected || airportCode) map.easeTo({ padding: padding(), duration: 0 }); updateSlot(); });
 
 // ---------- boot sequence: one fade-in once the style and the first snapshot are in ----------
 let bootDone = false;
@@ -61,12 +84,14 @@ const map = new maplibregl.Map({
   renderWorldCopies: false,
   pixelRatio: Math.min(2, window.devicePixelRatio || 1),
   canvasContextAttributes: { antialias: true },
-  attributionControl: { compact: true, customAttribution: "Vols : OpenSky · adsb.lol · adsb.fi · Planespotters" },
+  attributionControl: false, // credits live behind the "i" button in the bottom row
 });
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 const layer = new PlaneLayer(map, store);
 const radar = new Radar(map);
+const winds = new WindLayer(map, $("winds") as HTMLCanvasElement);
+const metar = new MetarFeed(map, (s) => layer.setMetar(s));
 
 function updateNight() {
   const src = map.getSource("night") as maplibregl.GeoJSONSource | undefined;
@@ -76,10 +101,13 @@ function paintLegend() {
   const stops = altRamp(currentTheme() === "dark").map(([ft, c]) => `${c} ${(ft / ALT_STOPS[ALT_STOPS.length - 1][0]) * 100}%`).join(", ");
   document.documentElement.style.setProperty("--alt-grad", `linear-gradient(90deg, ${stops})`);
 }
+function paintWindTone() { winds.setTone(currentTheme() === "dark", satellite); }
 map.on("style.load", () => {
   layer.install(currentTheme());
   radar.install(currentTheme());
-  updateNight(); paintLegend();
+  layer.setMetarVisible(prefs.metar);
+  metar.replay();
+  updateNight(); paintLegend(); paintWindTone();
 });
 map.once("load", () => { map.once("idle", () => bootStep("map")); setTimeout(() => bootStep("map"), 3500); });
 setInterval(() => { if (!document.hidden) updateNight(); }, 60_000);
@@ -90,7 +118,7 @@ function toast(msg: string) {
   const el = $("toast");
   el.textContent = msg; el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (el.hidden = true), 2600);
+  toastTimer = setTimeout(() => (el.hidden = true), 3200);
 }
 
 // ---------- data ----------
@@ -101,7 +129,11 @@ function ingest(planes: Plane[]) {
 }
 function sweep() {
   const now = serverNow();
-  for (const [k, t] of store) if (k !== selected && now - t.ts > (t.gnd ? 300 : 900)) store.delete(k);
+  for (const [k, t] of store) {
+    if (k === selected) continue;
+    // estimated planes keep an old real `ts` on purpose; they leave when the backend stops sending them
+    if (t.est ? now - (t.rts ?? t.ts) > 150 : now - t.ts > (t.gnd ? 300 : 900)) store.delete(k);
+  }
 }
 
 /** Viewport query for the 5 s area feed; null when the visible radius is above 250 NM. */
@@ -157,21 +189,9 @@ const weatherLoop = new Loop(async () => {
   if (hex === selected) panel.setWeather(w);
 }, () => (selected ? 120_000 : null));
 
-// ---------- selection ----------
-const panel = new Panel({
-  onClose: () => select(null, true),
-  onFollow: (on) => setFollow(on),
-  onShare: () => {
-    const url = location.href;
-    (navigator.clipboard?.writeText(url) ?? Promise.reject()).then(() => toast("Lien copié"), () => window.prompt("Copier le lien", url));
-  },
-});
-
-function setFollow(on: boolean) {
-  follow = on && !!selected;
-  panel.setFollow(follow);
-  if (follow && selected) flyToPlane(selected);
-}
+// ---------- camera ----------
+const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+const padding = (): maplibregl.PaddingOptions => mapPadding({ w: innerWidth, h: innerHeight, panel: !!selected || !!airportCode });
 
 /** Smooth camera: a short ease when the plane is already close, a proper flight when it is far. */
 function flyToPlane(hex: string) {
@@ -184,18 +204,97 @@ function flyToPlane(hex: string) {
   if (far) map.flyTo({ center: [lon, lat], zoom: z, speed: 0.9, curve: 1.5, padding: padding(), essential: false });
   else map.easeTo({ center: [lon, lat], zoom: z, duration: 900, easing: easeOut, padding: padding(), essential: false });
 }
-const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
-function padding(): maplibregl.PaddingOptions {
-  const none = { top: 0, right: 0, bottom: 0, left: 0 };
-  if (!selected) return none;
-  return isMobile() ? { ...none, bottom: 200 } : { ...none, right: 368 + 32 };
+function flyToPoint(lat: number, lon: number, zoom: number) {
+  map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), zoom), speed: 0.9, curve: 1.5, padding: padding(), essential: false });
+}
+
+// ---------- follow mode: gentle pitch, bearing along the track, any drag lets go ----------
+let fBearing = 0, lastFollowT = 0, followEaseUntil = 0, needLevel = false;
+
+function setFollow(on: boolean) {
+  const was = follow;
+  follow = on && !!selected;
+  panel.setFollow(follow);
+  winds.hold(follow);
+  if (follow && selected) {
+    const t = store.get(selected);
+    if (!t) { follow = false; panel.setFollow(false); winds.hold(false); return; }
+    const [lat, lon] = renderPos(t, serverNow());
+    fBearing = map.getBearing();
+    followEaseUntil = performance.now() + 1500;
+    lastFollowT = performance.now();
+    map.easeTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 7), pitch: FOLLOW_PITCH, bearing: t.trk ?? fBearing, padding: padding(), duration: 1400, easing: easeOut, essential: false });
+  } else if (was) levelCamera();
+}
+function levelCamera() { map.easeTo({ pitch: 0, bearing: 0, padding: padding(), duration: 900, easing: easeOut, essential: false }); }
+
+layer.onSelectedMove = (lat, lon, trk) => {
+  if (!follow || performance.now() < followEaseUntil) return;
+  const now = performance.now();
+  fBearing = lerpBearing(fBearing, trk ?? fBearing, smoothing(now - lastFollowT, 1400));
+  lastFollowT = now;
+  map.jumpTo({ center: [lon, lat], bearing: fBearing });
+};
+map.on("movestart", (e) => {
+  const type = (e as { originalEvent?: Event }).originalEvent?.type;
+  if (follow && endsFollow(type)) { follow = false; needLevel = true; panel.setFollow(false); winds.hold(false); }
+});
+map.on("moveend", () => { if (needLevel && !follow) { needLevel = false; levelCamera(); } });
+
+// ---------- flight card ----------
+const panel = new Panel({
+  onClose: () => select(null, true),
+  onFollow: (on) => setFollow(on),
+  onShare: () => {
+    const url = location.href;
+    (navigator.clipboard?.writeText(url) ?? Promise.reject()).then(() => toast("Lien copié"), () => window.prompt("Copier le lien", url));
+  },
+  onFullTrack: () => void toggleFullTrack(),
+});
+
+/** FR24 full track (40 credits): only on an explicit click, then drawn and framed. */
+let fullTrackShown = false;
+const FT_ERRORS: Record<string, string> = {
+  budget: "Crédits Flightradar24 épuisés pour aujourd’hui", rate: "Flightradar24 est sollicité, réessayez dans une minute",
+  not_found: "Flightradar24 n’a pas ce vol en direct", disabled: "Flightradar24 n’est pas activé", auth_error: "Flightradar24 est indisponible",
+};
+async function toggleFullTrack() {
+  const hex = selected;
+  if (!hex) return;
+  if (fullTrackShown) { fullTrackShown = false; layer.setFullTrack(null); panel.setFullTrack("idle"); return; }
+  panel.setFullTrack("loading");
+  try {
+    const r = await fetchFullTrack(hex);
+    if (hex !== selected) return;
+    if (r.points.length < 2) throw new ApiError(404, "not_found");
+    fullTrackShown = true;
+    layer.setFullTrack(r.points);
+    panel.setFullTrack("shown");
+    const ll = unwrap(r.points.map((p) => [p[1], p[0]] as [number, number]));
+    const b = new maplibregl.LngLatBounds(ll[0], ll[0]);
+    for (const p of ll) b.extend(p);
+    const pad = mapPadding({ w: innerWidth, h: innerHeight, panel: true });
+    map.fitBounds(b, { padding: { top: 96 + pad.top, bottom: 96 + pad.bottom, left: 64 + pad.left, right: 64 + pad.right }, maxZoom: 7, duration: 1200, essential: false });
+  } catch (e) {
+    if (hex !== selected) return;
+    panel.setFullTrack("idle");
+    toast((e instanceof ApiError && e.reason && FT_ERRORS[e.reason]) || "Trajectoire complète indisponible");
+  }
+}
+
+function syncDock() {
+  document.body.classList.toggle("dock-open", !!selected || !!airportCode);
+  updateSlot();
 }
 
 function select(hex: string | null, push: boolean) {
   if (hex === selected) return;
+  const wasFollowing = follow;
+  if (hex && airportCode) closeAirport(false, false);
   selected = hex;
-  follow = false;
+  follow = false; winds.hold(false);
+  fullTrackShown = false;
   layer.setSelected(hex);
   if (hex) {
     panel.show(store.get(hex), hex);
@@ -204,18 +303,67 @@ function select(hex: string | null, push: boolean) {
     panel.hide();
   }
   document.title = hex ? `${store.get(hex)?.cs ?? hex.toUpperCase()} — Stratus` : "Stratus — trafic aérien en direct";
-  map.easeTo({ padding: padding(), duration: 420, easing: easeOut, essential: false });
+  syncDock();
+  if (wasFollowing) map.easeTo({ pitch: 0, bearing: 0, padding: padding(), duration: 700, easing: easeOut, essential: false });
+  else map.easeTo({ padding: padding(), duration: 420, easing: easeOut, essential: false });
   syncUrl(push);
 }
 
-layer.onSelectedMove = (lat, lon) => { if (follow && !map.isEasing()) map.jumpTo({ center: [lon, lat] }); };
-map.on("movestart", (e) => { if (follow && (e as { originalEvent?: unknown }).originalEvent) { follow = false; panel.setFollow(false); } });
+// ---------- airport card ----------
+interface AptInfo { icao: string; iata?: string | null; name: string | null; city: string | null; country: string | null; lat?: number; lon?: number }
+const aptCache = new Map<string, AptInfo>();
+
+const airportPanel = new AirportPanel({
+  onClose: () => closeAirport(true),
+  onPickFlight: (hex) => { select(hex, true); flyToPlane(hex); },
+  onRadio: (icao) => atc.open(icao),
+  hasRadio: (icao) => atc.airports.some((a) => a.icao === icao),
+});
+
+const aptLoop = new Loop(async () => {
+  const code = airportCode;
+  if (!code) return;
+  try {
+    const b = await fetchAirportBoard(code);
+    if (code !== airportCode) return;
+    airportPanel.update(b);
+    layer.setAirport({ lat: b.airport.lat, lon: b.airport.lon, runways: b.airport.runways ?? [] });
+    if (pendingAirportFly) { pendingAirportFly = false; flyToPoint(b.airport.lat, b.airport.lon, 9); }
+  } catch (e) {
+    if (code !== airportCode) return;
+    if (e instanceof ApiError && e.status === 404) { toast("Aéroport introuvable"); closeAirport(true); }
+    else if (e instanceof ApiError && e.status === 503) toast("Catalogue des aéroports en cours de chargement, nouvel essai…");
+  }
+}, () => (airportCode ? 10_000 : null));
+
+function selectAirport(code: string, hint?: AptInfo, fly = false, push = true) {
+  const c = code.toUpperCase();
+  if (selected) select(null, false);
+  airportCode = c;
+  pendingAirportFly = fly;
+  airportPanel.show(c, hint ? { icao: hint.icao, iata: hint.iata, name: hint.name, city: hint.city, country: hint.country } : {});
+  syncDock();
+  if (fly && hint?.lat != null && hint.lon != null) { pendingAirportFly = false; flyToPoint(hint.lat, hint.lon, 9); }
+  else map.easeTo({ padding: padding(), duration: 420, easing: easeOut, essential: false });
+  document.title = `${hint?.icao ?? c} — Stratus`;
+  aptLoop.kick();
+  syncUrl(push);
+}
+
+function closeAirport(push: boolean, ease = true) {
+  if (!airportCode) return;
+  airportCode = null;
+  airportPanel.hide();
+  layer.setAirport(null);
+  syncDock();
+  if (ease) { document.title = "Stratus — trafic aérien en direct"; map.easeTo({ padding: padding(), duration: 420, easing: easeOut, essential: false }); syncUrl(push); }
+}
 
 // ---------- URL ----------
 let urlTimer: ReturnType<typeof setTimeout> | undefined;
 function syncUrl(push = false) {
   const c = map.getCenter();
-  const u = location.pathname + formatUrl({ hex: selected, ll: [c.lat, c.lng], z: map.getZoom() });
+  const u = location.pathname + formatUrl({ hex: selected, apt: airportCode, ll: [c.lat, c.lng], z: map.getZoom() });
   try { push ? history.pushState(null, "", u) : history.replaceState(null, "", u); } catch { /* sandboxed */ }
 }
 map.on("moveend", () => {
@@ -225,13 +373,15 @@ map.on("moveend", () => {
 });
 window.addEventListener("popstate", () => {
   const u = parseUrl(location.search, location.hash);
-  select(u.hex, false);
+  if (u.apt) { if (airportCode !== u.apt) selectAirport(u.apt, undefined, false, false); }
+  else { if (airportCode) closeAirport(false); select(u.hex, false); }
   if (u.ll) map.jumpTo({ center: [u.ll[1], u.ll[0]], zoom: u.z ?? map.getZoom() });
 });
 
 // ---------- picking, hover ----------
 // Picking runs against the positions currently drawn (PlaneLayer.pick), nearest first, with a generous radius:
 // planes are small and keep moving between a render and the click.
+const AIRPORT_LAYERS = ["metar-dots", "airport-s0-dot", "airport-s1-dot", "airport-s2-dot", "airport-dot"];
 map.on("click", (e) => {
   if ((atc.isOpen || atc.isLive) && map.getLayer("atc-dots")) {
     const a = map.queryRenderedFeatures([[e.point.x - 12, e.point.y - 12], [e.point.x + 12, e.point.y + 12]], { layers: ["atc-dots"] })[0];
@@ -239,8 +389,14 @@ map.on("click", (e) => {
   }
   const touch = (e.originalEvent as PointerEvent | undefined)?.pointerType === "touch" || "touches" in (e.originalEvent ?? {});
   const hex = layer.pick(e.point, touch ? 28 : 18);
-  if (hex) select(hex, true);
-  else if (selected) select(null, true);
+  if (hex) { select(hex, true); return; }
+  const r = touch ? 16 : 10;
+  const layers = AIRPORT_LAYERS.filter((id) => map.getLayer(id));
+  const f = layers.length ? map.queryRenderedFeatures([[e.point.x - r, e.point.y - r], [e.point.x + r, e.point.y + r]], { layers })[0] : undefined;
+  const code = f ? String(f.properties?.icao || f.properties?.iata || "") : "";
+  if (code) { selectAirport(code); return; }
+  if (selected) select(null, true);
+  else if (airportCode) closeAirport(true);
 });
 
 const tip = $("tip");
@@ -257,7 +413,7 @@ if (matchMedia("(hover: hover)").matches) {
         tip.dataset.hex = t.hex;
         tip.innerHTML = "<b></b><span></span>";
         tip.firstElementChild!.textContent = t.cs ?? t.reg ?? t.hex.toUpperCase();
-        tip.lastElementChild!.textContent = [t.type, fmtAlt(t.alt, t.gnd)].filter(Boolean).join(" · ");
+        tip.lastElementChild!.textContent = [t.est ? "Estimée" : null, t.type, fmtAlt(t.alt, t.gnd)].filter(Boolean).join(" · ");
       }
       tip.hidden = false;
       const w = tip.offsetWidth;
@@ -269,16 +425,34 @@ if (matchMedia("(hover: hover)").matches) {
   map.on("movestart", () => { tip.hidden = true; });
 }
 
-// ---------- ATC, status ----------
+// ---------- ATC, status, credits ----------
+let miniShown = false;
 const atc: Atc = new Atc({
-  onToggle: (open) => { layer.setAtcVisible(open || atc.isLive); if (open) status.close(); },
+  onToggle: (open) => { layer.setAtcVisible(open || atc.isLive); },
   onAirports: (a) => layer.setAtc(a),
   onPick: (a) => { if (Number.isFinite(a.lat) && Number.isFinite(a.lon)) map.flyTo({ center: [a.lon, a.lat], zoom: Math.max(map.getZoom(), 7.5), speed: 0.9, curve: 1.5, essential: false }); },
   onLive: (a) => { layer.setAtcLive(a && Number.isFinite(a.lat) && Number.isFinite(a.lon) ? { lat: a.lat, lon: a.lon } : null); layer.setAtcVisible(atc.isOpen || !!a); },
+  onMini: (show) => { miniShown = show; updateSlot(); },
 });
-const status: StatusChip = new StatusChip(() => areaParams() !== null, () => atc.close());
+const status = new StatusChip({
+  areaActive: () => areaParams() !== null,
+  onAlerts: (alerts) => layer.setAlerts(alerts.map((a) => a.hex)),
+  onPick: (hex) => { select(hex, true); flyToPlane(hex); },
+});
+void status;
+new Credits(() => ({ satellite, radar: radar.enabled, winds: prefs.winds, metar: prefs.metar }));
+
+// ---------- bottom slot: radar pill or radio mini-player ----------
+let radarShown = false;
+function updateSlot() {
+  $("slot").dataset.mode = slotMode({ mini: miniShown, radar: radarShown, phone: phone(), panel: document.body.classList.contains("dock-open") });
+}
 
 // ---------- search ----------
+const atcAsApt = (key: string): AptInfo | undefined => {
+  const a = atc.airports.find((x) => `apt:${x.icao}` === key);
+  return a ? { icao: a.icao, name: a.name, city: a.city, country: a.country, lat: a.lat, lon: a.lon } : undefined;
+};
 function* searchItems(): Generator<Searchable> {
   for (const t of store.values()) {
     yield { key: t.hex, kind: "plane", fields: [
@@ -292,22 +466,31 @@ function* searchItems(): Generator<Searchable> {
     ] };
   }
 }
+const fromCatalog = (a: AirportInfo): AptInfo => ({ icao: a.icao, iata: a.iata, name: a.name, city: a.city, country: a.country, lat: a.lat, lon: a.lon });
 initSearch({
   items: searchItems,
   describe: (h: Hit) => {
     if (h.kind === "airport") {
-      const a = atc.airports.find((x) => `apt:${x.icao}` === h.key);
-      return a ? { kind: "airport", title: a.name, sub: [a.icao, a.city].filter(Boolean).join(" · "), side: "Radio ATC" } : null;
+      const a = aptCache.get(h.key) ?? atcAsApt(h.key);
+      if (!a) return null;
+      const radio = atc.airports.some((x) => x.icao === a.icao);
+      return { kind: "airport", title: a.name ?? a.icao, sub: [a.icao, a.iata, a.city].filter(Boolean).join(" · "), side: radio ? "Radio ATC" : "Aéroport" };
     }
     const t = store.get(h.key);
-    return t ? { kind: "plane", title: t.cs ?? t.reg ?? t.hex.toUpperCase(), sub: [t.type, t.reg].filter(Boolean).join(" · ") || t.hex.toUpperCase(), side: fmtAlt(t.alt, t.gnd) } : null;
+    return t ? { kind: "plane", title: t.cs ?? t.reg ?? t.hex.toUpperCase(), sub: [t.type, t.reg].filter(Boolean).join(" · ") || t.hex.toUpperCase(), side: t.est ? "Estimée" : fmtAlt(t.alt, t.gnd) } : null;
+  },
+  remote: async (q, signal) => {
+    const list = await fetchAirports(q, signal);
+    return list.map((a) => {
+      const key = `apt:${a.icao}`;
+      aptCache.set(key, fromCatalog(a));
+      return { key, kind: "airport" as const, score: 40, label: "Aéroport" };
+    });
   },
   pick: (h) => {
     if (h.kind === "airport") {
-      const a = atc.airports.find((x) => `apt:${x.icao}` === h.key);
-      if (!a) return;
-      if (Number.isFinite(a.lat) && Number.isFinite(a.lon)) map.flyTo({ center: [a.lon, a.lat], zoom: Math.max(map.getZoom(), 8), speed: 0.9, curve: 1.5, essential: false });
-      atc.open(a.icao);
+      const a = aptCache.get(h.key) ?? atcAsApt(h.key);
+      if (a) selectAirport(a.icao, a, true);
       return;
     }
     select(h.key, true);
@@ -315,54 +498,56 @@ initSearch({
   },
 });
 
-// ---------- toolbar ----------
+// ---------- toolbar, layers menu ----------
 $("zoom-in").addEventListener("click", () => map.zoomIn({ duration: 300 }));
 $("zoom-out").addEventListener("click", () => map.zoomOut({ duration: 300 }));
-initTheme((t: Theme) => { map.setStyle(buildStyle(t, { satellite }), { diff: false }); radar.setTheme(t); });
+initTheme((t: Theme) => { map.setStyle(buildStyle(t, { satellite }), { diff: false }); radar.setTheme(t); paintWindTone(); });
 
-const satBtn = $("btn-sat");
-satBtn.setAttribute("aria-pressed", String(satellite));
-satBtn.addEventListener("click", async () => {
-  satellite = !satellite;
-  satBtn.setAttribute("aria-pressed", String(satellite));
-  lsSet("stratus.sat", satellite ? "1" : null);
-  // The style is rebuilt (cheap: vector tiles come from the HTTP cache) so every layer's colours match the imagery.
-  map.setStyle(buildStyle(currentTheme(), { satellite }), { diff: false });
-});
-
-// radar: on by default, animated, with a small timeline
-const radarBtn = $("btn-radar"), bar = $("radar-bar"), scrub = $<HTMLInputElement>("radar-scrub"), rtime = $("radar-time"), rplay = $("radar-play");
-const fmtClock = (s: number) => new Date(s * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-radar.onChange = (s: RadarUi) => {
-  bar.hidden = !radar.enabled;
-  document.body.classList.toggle("radar-on", radar.enabled);
-  scrub.max = String(Math.max(0, s.frames - 1)); scrub.value = String(s.index);
-  scrub.style.setProperty("--v", `${s.frames > 1 ? (s.index / (s.frames - 1)) * 100 : 0}%`);
-  rtime.textContent = s.time ? `${fmtClock(s.time)}${s.forecast ? " · prévision" : ""}` : "—";
-  rtime.classList.toggle("fc", s.forecast);
-  rplay.innerHTML = icon(s.playing ? "pause" : "play");
-  rplay.setAttribute("aria-label", s.playing ? "Pause" : "Lecture");
+const rpill = initRadarPill({ onSeek: (i) => radar.seek(i), onToggle: () => radar.toggle() });
+radar.onChange = (s) => {
+  radarShown = radar.enabled && s.frames > 0;
+  rpill.setVisible(radarShown);
+  rpill.update(s);
+  updateSlot();
 };
-scrub.addEventListener("input", () => radar.seek(Number(scrub.value)));
-rplay.addEventListener("click", () => radar.toggle());
 async function setRadar(on: boolean, manual: boolean) {
-  radarBtn.setAttribute("aria-pressed", String(on));
   if (!(await radar.set(on, currentTheme()))) {
-    radarBtn.setAttribute("aria-pressed", "false");
+    menu.setPref("radar", false, false);
     if (manual) toast("Radar météo indisponible");
-    return;
   }
-  lsSet("stratus.radar", on ? null : "0"); // on is the default
 }
-radarBtn.addEventListener("click", () => void setRadar(radarBtn.getAttribute("aria-pressed") !== "true", true));
-radarBtn.setAttribute("aria-pressed", String(lsGet("stratus.radar") !== "0"));
-map.once("load", () => { if (lsGet("stratus.radar") !== "0") void setRadar(true, false); });
+
+function applyPref(key: keyof LayerPrefs) {
+  switch (key) {
+    case "radar": void setRadar(prefs.radar, true); break;
+    case "winds": case "windLevel": winds.set(prefs.winds, prefs.windLevel); break;
+    case "metar": metar.set(prefs.metar); layer.setMetarVisible(prefs.metar); break;
+    case "est": layer.setShowEstimated(prefs.est); break;
+    case "satellite":
+      satellite = prefs.satellite;
+      // The style is rebuilt (cheap: vector tiles come from the HTTP cache) so every layer's colours match the imagery.
+      map.setStyle(buildStyle(currentTheme(), { satellite }), { diff: false });
+      paintWindTone();
+      break;
+  }
+}
+const menu: LayersMenu = new LayersMenu({
+  onPrefs: (p, key) => { prefs = p; applyPref(key); },
+  onFilters: (f) => layer.setFilter(compileFilters(f)),
+});
+layer.setFilter(compileFilters(menu.state.filters));
+layer.setShowEstimated(prefs.est);
+map.once("load", () => {
+  if (prefs.radar) void setRadar(true, false);
+  if (prefs.winds) winds.set(true, prefs.windLevel);
+  if (prefs.metar) { metar.set(true); layer.setMetarVisible(true); }
+});
 
 // ---------- keyboard ----------
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (atc.isOpen) atc.close();
-  else if (status.isOpen) status.close();
+  if (closeTopmost()) return;
+  if (airportCode) closeAirport(true);
   else if (selected) select(null, true);
 });
 
@@ -371,8 +556,11 @@ function frame(t: number) { layer.frame(t); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 setInterval(() => { if (selected && !document.hidden) panel.tick(store.get(selected)); }, 1000);
 
-planesLoop.start(); areaLoop.start(); detailLoop.start(); weatherLoop.start();
-if (initial.hex) {
+planesLoop.start(); areaLoop.start(); detailLoop.start(); weatherLoop.start(); aptLoop.start();
+updateSlot();
+if (initial.apt) {
+  selectAirport(initial.apt, undefined, !initial.ll, false);
+} else if (initial.hex) {
   if (!initial.ll) pendingFly = initial.hex;
   select(initial.hex, false);
 }

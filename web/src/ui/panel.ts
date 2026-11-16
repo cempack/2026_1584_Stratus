@@ -10,6 +10,7 @@ import type { Detail, Weather } from "../api";
 import { serverNow } from "../api";
 import { type Track, distanceNm, fmtAgo, fmtAltM, fmtInt, fmtSpeedKmh, fmtTrack, fmtVr, renderPos } from "../lib/core";
 import { sparkline } from "../lib/spark";
+import { Sheet } from "./sheet";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const text = (id: string, v: string) => { const el = $(id); if (el.textContent !== v) el.textContent = v; };
@@ -21,7 +22,8 @@ const cardinal = (deg: number) => CARDINALS[Math.round((((deg % 360) + 360) % 36
 const PHOTO_PATIENCE_S = 9;
 const AIRLINE_CS = /^[A-Z]{3}\d/;
 
-export interface PanelHandlers { onClose(): void; onFollow(on: boolean): void; onShare(): void }
+export interface PanelHandlers { onClose(): void; onFollow(on: boolean): void; onShare(): void; onFullTrack(): void }
+export type FullTrackState = "idle" | "loading" | "shown";
 
 export function fmtDuration(hours: number): string {
   const m = Math.max(0, Math.round(hours * 60));
@@ -29,16 +31,18 @@ export function fmtDuration(hours: number): string {
 }
 
 export class Panel {
-  private sheetOpen = false;
+  private sheet: Sheet;
+  private ftState: FullTrackState = "idle";
   private photoUrl = "";
   private photoTried = new Set<string>();
   private photoRetryAt = 0;
   private shownAt = 0;
   private logoIata = "";
   private lastDetail: Detail | null = null;
-  private isMobile = () => matchMedia("(max-width: 719px)").matches;
 
   constructor(h: PanelHandlers) {
+    this.sheet = new Sheet($("panel"));
+    $("p-fulltrack").addEventListener("click", () => h.onFullTrack());
     $("p-close").addEventListener("click", () => h.onClose());
     $("p-share").addEventListener("click", () => h.onShare());
     $("p-follow").addEventListener("click", () => h.onFollow($("p-follow").getAttribute("aria-pressed") !== "true"));
@@ -48,10 +52,9 @@ export class Panel {
     const logo = $<HTMLImageElement>("p-logo-img");
     logo.addEventListener("load", () => ($("p-logo").dataset.state = "img"));
     logo.addEventListener("error", () => { $("p-logo").dataset.state = "mono"; });
-    this.initSheet();
   }
 
-  get isOpen() { return document.body.classList.contains("panel-open"); }
+  get isOpen() { return $("panel").dataset.open === "1"; }
 
   private setHero(s: "loading" | "ready" | "none") { const f = $("p-photo"); if (f.dataset.state !== s) f.dataset.state = s; }
 
@@ -73,8 +76,11 @@ export class Panel {
     ($("r-fill") as HTMLElement).style.width = "0%";
     ($("r-glyph") as HTMLElement).style.left = "0%";
     this.setFollow(false);
-    this.setSheet(false);
-    document.body.classList.add("panel-open");
+    this.setFullTrack("idle");
+    $("p-est").hidden = true;
+    text("r-src", "");
+    this.sheet.set(false);
+    $("panel").dataset.open = "1";
     $("panel").setAttribute("aria-hidden", "false");
     text("p-cs", t?.cs ?? hex.toUpperCase());
     this.monogram(t?.cs ?? null, null);
@@ -83,8 +89,31 @@ export class Panel {
   }
 
   hide() {
-    document.body.classList.remove("panel-open", "sheet-open");
+    this.sheet.set(false);
+    $("panel").dataset.open = "0";
     $("panel").setAttribute("aria-hidden", "true");
+  }
+
+  /** The FR24 full-track button: idle (offer it), loading, or shown (offer to hide it). */
+  setFullTrack(s: FullTrackState) {
+    this.ftState = s;
+    const b = $<HTMLButtonElement>("p-fulltrack");
+    b.setAttribute("aria-pressed", String(s === "shown"));
+    b.disabled = s === "loading";
+    if (s === "loading") text("p-ft-text", "Chargement de la trajectoire…");
+    else if (s === "shown") { b.hidden = false; text("p-ft-text", "Masquer la trajectoire complète"); }
+    else this.renderFullTrackButton();
+  }
+
+  private renderFullTrackButton() {
+    const b = $<HTMLButtonElement>("p-fulltrack"), ft = this.lastDetail?.full_track;
+    if (this.ftState === "shown") return;
+    b.hidden = !(ft?.available);
+    if (ft?.available) {
+      text("p-ft-text", `Trajectoire complète (${fmtInt(ft.cost)} crédits)`);
+      const left = this.lastDetail?.fr24?.credits_remaining;
+      b.title = left != null ? `${fmtInt(left)} crédits Flightradar24 restants aujourd’hui` : "Flightradar24";
+    }
   }
 
   setFollow(on: boolean) {
@@ -149,8 +178,7 @@ export class Panel {
     const badges: string[] = [];
     if (t.sqk && EMERGENCY[t.sqk]) badges.push(`!${EMERGENCY[t.sqk]}`);
     if (t.gnd) badges.push("Au sol");
-    if (route && !route.plausible) badges.push("Itinéraire non confirmé");
-    if (serverNow() - t.ts > 300) badges.push("Position ancienne");
+    if (!t.est && serverNow() - t.ts > 300) badges.push("Position ancienne");
     const bEl = $("p-badges"), key = badges.join("|");
     if (bEl.dataset.key !== key) {
       bEl.dataset.key = key;
@@ -193,6 +221,9 @@ export class Panel {
         text("r-d", dst.iata ?? dst.icao); text("r-dc", dst.city ?? dst.name ?? "");
         $("p-route").classList.toggle("unconfirmed", !route!.plausible);
       }
+      const src = route?.source === "fr24" ? "Itinéraire : FR24" : route?.source === "adsbdb" ? `Itinéraire : adsbdb${route.plausible ? "" : ", non confirmé"}` : "";
+      text("r-src", o && dst ? src : "");
+      this.renderFullTrackButton();
       this.renderPhoto(d, ac?.registration ?? t.reg ?? "", ac?.type_name ?? t.type ?? "Avion");
       this.renderSpark(d, t);
     }
@@ -251,6 +282,15 @@ export class Panel {
       this.loadPhoto(this.lastDetail.photo.large, this.lastDetail.photo.thumb);
     }
     const age = serverNow() - t.ts;
+    const est = $("p-est");
+    est.hidden = !t.est;
+    if (t.est) {
+      text("p-est-t", `Position estimée depuis ${fmtDuration(age / 3600)}`);
+      text("p-est-s", `Dernier signal reçu à ${new Date(t.ts * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}. La position est calculée le long de l’itinéraire.`);
+      text("f-text", `Estimation · dernier signal ${fmtAgo(age)}`);
+      $("f-dot").className = "dot warn";
+      return;
+    }
     text("f-text", `Position ${fmtAgo(age)} · ${t.src || "source inconnue"}`);
     $("f-dot").className = `dot ${age < 20 ? "ok" : age < 120 ? "warn" : "bad"}`;
   }
@@ -260,43 +300,5 @@ export class Panel {
     text("w-temp", w.temp_c == null ? "—" : `${w.temp_c.toFixed(0).replace("-", "−")} °C`);
     text("w-wind", w.wind_kt == null ? "—" : `${fmtInt(w.wind_kt)} kt${w.wind_dir == null ? "" : ` · ${fmtTrack(w.wind_dir)}`}`);
     text("w-cloud", w.cloud_pct == null ? "—" : `${fmtInt(w.cloud_pct)} %${w.level ? ` · ${w.level}` : ""}`);
-  }
-
-  // ----- mobile bottom sheet -----
-  private setSheet(open: boolean) {
-    this.sheetOpen = open;
-    document.body.classList.toggle("sheet-open", open);
-  }
-
-  private initSheet() {
-    const panel = $("panel"), handle = $("sheet-handle");
-    let startY = 0, base = 0, moved = false, active = false;
-    const collapsed = () => panel.offsetHeight - parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--peek"));
-    handle.addEventListener("pointerdown", (e) => {
-      active = true; moved = false; startY = e.clientY;
-      base = this.sheetOpen ? 0 : collapsed();
-      handle.setPointerCapture(e.pointerId);
-      document.body.classList.add("sheet-drag");
-    });
-    handle.addEventListener("pointermove", (e) => {
-      if (!active) return;
-      const dy = e.clientY - startY;
-      if (Math.abs(dy) > 6) moved = true;
-      if (moved) panel.style.transform = `translateY(${Math.max(0, Math.min(collapsed(), base + dy))}px)`;
-    });
-    const end = (e: PointerEvent) => {
-      if (!active) return;
-      active = false;
-      document.body.classList.remove("sheet-drag");
-      panel.style.transform = "";
-      const dy = e.clientY - startY;
-      if (!moved) this.setSheet(!this.sheetOpen);
-      else this.setSheet(dy < -40 ? true : dy > 40 ? false : this.sheetOpen);
-    };
-    handle.addEventListener("pointerup", end);
-    handle.addEventListener("pointercancel", end);
-    panel.addEventListener("click", (e) => {
-      if (this.isMobile() && !this.sheetOpen && !(e.target as HTMLElement).closest("button, a")) this.setSheet(true);
-    });
   }
 }

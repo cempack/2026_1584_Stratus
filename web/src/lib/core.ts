@@ -234,19 +234,21 @@ export function search(items: Iterable<Searchable>, raw: string, limit = 8): Hit
 }
 
 // ---------- URL state: #/flight/<hex> and ?ll=lat,lon&z=zoom ----------
-export interface UrlState { hex: string | null; ll: [number, number] | null; z: number | null }
+export interface UrlState { hex: string | null; ll: [number, number] | null; z: number | null; /** Airport card: #/airport/LFPG (ICAO or IATA). */ apt?: string | null }
 export function parseUrl(search: string, hash: string): UrlState {
   const p = new URLSearchParams(search);
   const ll = (p.get("ll") ?? "").split(",").map(Number);
   const z = Number(p.get("z"));
   const m = hash.match(/^#\/flight\/([0-9a-fA-F]{6})$/);
+  const a = hash.match(/^#\/airport\/([A-Za-z0-9]{3,4})$/);
   return {
     hex: m ? m[1].toLowerCase() : null,
+    apt: a ? a[1].toUpperCase() : null,
     ll: ll.length === 2 && ll.every(Number.isFinite) && Math.abs(ll[0]) <= 90 && Math.abs(ll[1]) <= 180 ? [ll[0], ll[1]] : null,
     z: p.has("z") && Number.isFinite(z) ? Math.min(20, Math.max(0, z)) : null,
   };
 }
 export function formatUrl(s: UrlState): string {
   const q = s.ll ? `?ll=${s.ll[0].toFixed(4)},${s.ll[1].toFixed(4)}&z=${(s.z ?? 2).toFixed(2)}` : "";
-  return `${q}${s.hex ? `#/flight/${s.hex}` : ""}`;
+  return `${q}${s.hex ? `#/flight/${s.hex}` : s.apt ? `#/airport/${s.apt}` : ""}`;
 }

@@ -25,9 +25,16 @@ const STROKE: Record<string, string> = {
   center: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/><path d="m12 12 4.6-4.6"/>',
   sliders: '<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/>',
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>',
+  wind: '<path d="M3 8h9.5a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12.5h15a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 17h6"/>',
+  cloud: '<path d="M7 18a4 4 0 0 1-.5-7.97A5.5 5.5 0 0 1 17.2 9 4.5 4.5 0 0 1 17 18z"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.6 5.2 3.6 8.5s-1.1 6.1-3.6 8.5c-2.5-2.4-3.6-5.2-3.6-8.5S9.5 5.9 12 3.5z"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  route: '<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/>',
+  chevdown: '<path d="m6 9.5 6 6 6-6"/>',
   pin:'<path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.2"/>',
 };
 const FILL: Record<string, string> = {
+  stop: '<rect x="7" y="7" width="10" height="10" rx="2"/>',
   play: '<path d="M8 5.5v13l11-6.5z"/>',
   pause: '<rect x="7" y="5.5" width="3.6" height="13" rx="1"/><rect x="13.4" y="5.5" width="3.6" height="13" rx="1"/>',
   plane: '<path d="M12 2c.8 0 1.2 1.1 1.2 2.2v5.3l8 4.5v2l-8-2.3v5l2.6 1.8v1.5L12 21.2l-3.8 1V20.5l2.6-1.8v-5l-8 2.3v-2l8-4.5V4.2C10.8 3.1 11.2 2 12 2z"/>',

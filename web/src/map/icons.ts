@@ -30,14 +30,16 @@ function toSdf(alpha: Uint8ClampedArray, w: number, h: number): Uint8ClampedArra
   return out;
 }
 
-export function makeIcon(shape: Shape): { width: number; height: number; data: Uint8ClampedArray } {
+/** `outline`: the silhouette drawn as a thin stroke only (estimated planes read as hollow). */
+export function makeIcon(shape: Shape, outline = false): { width: number; height: number; data: Uint8ClampedArray } {
   const w = SIZE + BUF * 2;
   const cv = document.createElement("canvas");
   cv.width = cv.height = w;
   const ctx = cv.getContext("2d")!;
   ctx.translate(BUF, BUF);
   ctx.scale(SIZE / 64, SIZE / 64);
-  ctx.fill(new Path2D(PATHS[shape]), "nonzero");
+  const path = new Path2D(PATHS[shape]);
+  if (outline) { ctx.lineWidth = 4.2; ctx.lineJoin = "round"; ctx.stroke(path); } else ctx.fill(path, "nonzero");
   return { width: w, height: w, data: toSdf(ctx.getImageData(0, 0, w, w).data, w, w) };
 }
 

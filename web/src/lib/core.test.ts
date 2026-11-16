@@ -92,8 +92,10 @@ describe("search", () => {
 describe("url", () => {
   it("round-trips", () => {
     const s = parseUrl("?ll=48.85,2.35&z=7", "#/flight/3C6444");
-    expect(s).toEqual({ hex: "3c6444", ll: [48.85, 2.35], z: 7 });
+    expect(s).toEqual({ hex: "3c6444", apt: null, ll: [48.85, 2.35], z: 7 });
     expect(formatUrl(s)).toBe("?ll=48.8500,2.3500&z=7.00#/flight/3c6444");
-    expect(parseUrl("?ll=999,1", "#nope")).toEqual({ hex: null, ll: null, z: null });
+    expect(parseUrl("?ll=999,1", "#nope")).toEqual({ hex: null, apt: null, ll: null, z: null });
+    expect(parseUrl("", "#/airport/lfpg").apt).toBe("LFPG");
+    expect(formatUrl({ hex: null, apt: "LFPG", ll: null, z: null })).toBe("#/airport/LFPG");
   });
 });
