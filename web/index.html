@@ -11,10 +11,14 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <script>
     (function () {
-      // Light by default; dark only when the user picked it. Also start the first data requests now, in parallel
+      // Also start the first data requests now, in parallel
       // with the bundle and the map style, instead of after them.
-      try { document.documentElement.dataset.theme = localStorage.getItem("stratus.theme") === "dark" ? "dark" : "light"; }
-      catch (e) { document.documentElement.dataset.theme = "light"; }
+      // First paint only (the splash): the app resolves the theme exactly (sun position) before the map is built.
+      try {
+        var m = localStorage.getItem("stratus.theme.mode") || "auto", h = new Date().getHours();
+        var dark = m === "dark" || (m === "system" && matchMedia("(prefers-color-scheme: dark)").matches) || (m === "auto" && (h < 7 || h >= 19));
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      } catch (e) { document.documentElement.dataset.theme = "light"; }
       try {
         window.__boot = { planes: fetch("/api/planes"), status: fetch("/api/status") };
         window.__boot.planes.catch(function () {}); window.__boot.status.catch(function () {});
@@ -32,7 +36,7 @@
   <div id="ui" class="ui">
     <header class="zone top">
       <div class="top-left">
-        <div class="brand" aria-label="Stratus"><img class="brand-mark" src="/logo.svg" alt="" width="28" height="28" /><span class="brand-name">Stratus</span></div>
+        <div class="brand glass" aria-label="Stratus"><img class="brand-mark" src="/logo.svg" alt="" width="28" height="28" /><span class="brand-name">Stratus</span></div>
         <div class="search glass" role="search">
           <span class="search-icon" data-icon="search"></span>
           <input id="q" type="text" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list"
@@ -45,25 +49,13 @@
           <div class="pop-head"><h2>Radio ATC <span id="atc-count" class="count"></span></h2><button class="btn ghost small" data-close aria-label="Fermer" data-icon="x"></button></div>
 
           <div id="atc-player" class="player" hidden>
-            <div class="tw-head">
-              <svg class="tower-art" viewBox="0 0 64 64" aria-hidden="true">
-                <g class="tw-arcs" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path class="a1" d="M27.1 3.1A6 6 0 0 0 27.1 9.9"/><path class="a1" d="M36.9 3.1A6 6 0 0 1 36.9 9.9"/><path class="a2" d="M23.8 0.8A10 10 0 0 0 23.8 12.2"/><path class="a2" d="M40.2 0.8A10 10 0 0 1 40.2 12.2"/></g>
-                <path class="tw-mast" d="M32 17V8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                <circle class="tw-lamp" cx="32" cy="6.5" r="2.4"/>
-                <path class="tw-roof" d="M17 22.5 22 17h20l5 5.5z" fill="currentColor" opacity=".85"/>
-                <path class="tw-cab" d="M15 23h34l-4 11H19z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                <path class="tw-glass" d="M19.6 25h24.8l-2.6 7H22.2z" fill="currentColor" opacity=".22"/>
-                <path class="tw-bars" d="M26.5 25l-1 7M32 25v7M37.5 25l1 7" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
-                <path class="tw-shaft" d="M27 34h10l2 22H25z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                <path class="tw-door" d="M30 56v-6h4v6" fill="currentColor" opacity=".3"/>
-                <path d="M19 56h26" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
+            <div class="np">
+              <button id="atc-play" class="btn play" aria-label="Écouter" data-icon="play"></button>
               <div class="tw-id">
-                <b id="atc-code" class="player-code">—</b>
+                <div class="tw-line"><b id="atc-code" class="player-code">—</b><span id="atc-pill" class="pill st-idle" role="status" aria-live="polite"><i class="dot"></i><span id="atc-pill-text">Arrêté</span></span></div>
                 <span id="atc-title" class="tw-name"></span>
                 <small id="atc-sub"></small>
               </div>
-              <span id="atc-pill" class="pill st-idle" role="status" aria-live="polite"><i class="dot"></i><span id="atc-pill-text">Arrêté</span></span>
             </div>
 
             <div class="lcd" id="atc-lcd">
@@ -73,16 +65,15 @@
               </div>
               <div class="lcd-main">
                 <div class="freq"><b id="atc-freq">---.---</b><i>MHz</i></div>
+                <canvas id="atc-viz" class="viz" aria-hidden="true"></canvas>
                 <div class="lvl" id="atc-lvl" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
               </div>
-              <canvas id="atc-viz" class="viz" aria-hidden="true"></canvas>
               <div id="atc-label" class="lcd-label"></div>
             </div>
 
             <div id="atc-feeds" class="feeds" role="radiogroup" aria-label="Fréquence"></div>
             <p id="atc-note" class="note" hidden></p>
             <div class="player-bar">
-              <button id="atc-play" class="btn play" aria-label="Écouter" data-icon="play"></button>
               <button id="atc-retry" class="btn-text" hidden>Réessayer</button>
               <label class="vol"><span data-icon="volume"></span><input id="atc-vol" type="range" min="0" max="1" step="0.05" value="0.8" aria-label="Volume" /></label>
             </div>
@@ -115,8 +106,15 @@
             <li><label class="opt"><span class="o-ico" data-icon="clock"></span><span class="o-txt"><b>Positions estimées</b><small>Avions hors couverture</small></span><input id="lay-est" type="checkbox" role="switch" /><i class="sw"></i></label></li>
           </ul>
 
-          <div class="menu-row"><span class="k">Thème</span>
-            <div class="seg" role="radiogroup" aria-label="Thème"><button type="button" role="radio" data-theme-set="light"><span data-icon="sun"></span>Clair</button><button type="button" role="radio" data-theme-set="dark"><span data-icon="moon"></span>Sombre</button></div>
+          <div class="theme-row">
+            <span class="k">Thème</span>
+            <div class="seg seg-theme" role="radiogroup" aria-label="Thème">
+              <button type="button" role="radio" data-theme-mode="auto" title="Suit le soleil"><span data-icon="daycycle"></span>Auto</button>
+              <button type="button" role="radio" data-theme-mode="light"><span data-icon="sun"></span>Clair</button>
+              <button type="button" role="radio" data-theme-mode="dark"><span data-icon="moon"></span>Sombre</button>
+              <button type="button" role="radio" data-theme-mode="system" title="Réglage de l’appareil"><span data-icon="device"></span>Système</button>
+            </div>
+            <p id="theme-hint" class="theme-hint"></p>
           </div>
 
           <details id="filters" class="filters">

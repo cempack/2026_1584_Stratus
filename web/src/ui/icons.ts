@@ -6,6 +6,8 @@ const STROKE: Record<string, string> = {
   minus: '<path d="M5 12h14"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1 1M17.4 17.4l1 1M5.6 18.4l1-1M17.4 6.6l1-1"/>',
   moon: '<path d="M20 14.2A8 8 0 0 1 9.8 4 8 8 0 1 0 20 14.2z"/>',
+  daycycle: '<path d="M12 4a8 8 0 0 1 0 16"/><path d="M12 4a8 8 0 0 0 0 16" stroke-dasharray="1.6 2.4"/><path d="M12 8.5a3.5 3.5 0 0 1 0 7z" fill="currentColor"/>',
+  device: '<rect x="3.5" y="5" width="17" height="11.5" rx="2"/><path d="M9 20h6M12 16.5V20"/>',
   rain: '<path d="M7 15a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.2 8 3.5 3.5 0 0 1 17 15"/><path d="M8 18v2M12 17v3M16 18v2"/>',
   radio: '<path d="M5.6 18.4a9 9 0 0 1 0-12.8M8.4 15.6a5 5 0 0 1 0-7.2M15.6 8.4a5 5 0 0 1 0 7.2M18.4 5.6a9 9 0 0 1 0 12.8"/><circle cx="12" cy="12" r="1.6"/>',
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 10 18.7l1-1"/>',

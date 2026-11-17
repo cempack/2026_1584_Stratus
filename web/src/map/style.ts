@@ -110,6 +110,8 @@ export function buildStyle(theme: Theme, opts: BasemapOptions = {}): StyleSpecif
   return {
     version: 8,
     projection: { type: "globe" },
+    // paint changes (theme switch, satellite) fade instead of snapping; layers that animate set their own transition
+    transition: { duration: 700, delay: 0 },
     glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
     sky: { "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 4, 0.85, 7, 0] },
     sources: {
