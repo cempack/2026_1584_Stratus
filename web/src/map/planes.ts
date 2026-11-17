@@ -242,7 +242,7 @@ export class PlaneLayer {
 
   private head: { lat: number; lon: number; alt: number; est: boolean } | null = null;
   private refreshOverlay(force = false, t = performance.now()) {
-    if (!force && t - this.lastOverlay < (this.moving() ? 400 : 200)) return;
+    if (!force && t - this.lastOverlay < (this.moving() ? 600 : 300)) return;
     this.lastOverlay = t;
     const feats: object[] = [];
     const pts = this.trailPts;
@@ -296,7 +296,7 @@ export class PlaneLayer {
     return f;
   }
 
-  private mainInterval(z: number) { return z < 3 ? 2500 : z < 5 ? 1200 : z < 7 ? 600 : z < 9 ? 300 : 150; }
+  private mainInterval(z: number) { return z < 3.5 ? 4000 : z < 5 ? 1500 : z < 7 ? 700 : z < 9 ? 300 : 150; }
 
   /**
    * Nearest plane to a screen point, among what is currently drawn (fleet positions as last pushed + the animated

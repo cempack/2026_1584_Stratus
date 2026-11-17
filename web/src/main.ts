@@ -88,7 +88,8 @@ const map = new maplibregl.Map({
   pitchWithRotate: false,
   renderWorldCopies: false,
   pixelRatio: Math.min(2, window.devicePixelRatio || 1),
-  canvasContextAttributes: { antialias: true },
+  // no MSAA: symbols and lines antialias in their shaders; full-canvas MSAA was a large GPU cost on the globe
+  canvasContextAttributes: { antialias: false },
   attributionControl: false, // credits live behind the "i" button in the bottom row
 });
 installImagery(map);

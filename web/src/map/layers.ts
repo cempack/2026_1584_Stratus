@@ -27,6 +27,9 @@ export function buildOverlay(theme: Theme, opts: { atcVisible?: boolean; metarVi
   const vis = (on: boolean | undefined) => ({ visibility: on ? "visible" : "none" }) as const;
   const sources: Overlay["sources"] = {};
   for (const id of SOURCE_IDS) sources[id] = { type: "geojson", data: EMPTY as unknown as GeoJSONSourceSpecification["data"] };
+  // ~12k points re-sent several times a second: tiling them to z18 (the default) is wasted worker time; z10 tiles are
+  // overzoomed above that with ~10 m precision
+  for (const id of ["planes", "planes-est"] as const) sources[id] = { ...sources[id], maxzoom: 10 };
 
   const ramp = altRamp(theme === "dark").flat();
   const altColor = ["interpolate", ["linear"], ["get", "alt"], ...ramp] as ExpressionSpecification;
