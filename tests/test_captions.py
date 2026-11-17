@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 pytest.importorskip("faster_whisper")
-from stratus.captions import FRAME, RATE, Splitter, plausible  # noqa: E402
+from stratus.captions import _STUTTER, FRAME, RATE, Splitter, plausible  # noqa: E402
 
 
 def tone(seconds, amp=0.2):
@@ -40,3 +40,8 @@ def test_plausibility_filter():
     assert not plausible("Thank you.")
     assert plausible("Roger, runway 25, cleared for takeoff")
     assert not plausible("The")
+
+
+def test_stutter_collapse():
+    assert _STUTTER.sub(r"\1", "contact departure, fly, fly, fly, fly, fly") == "contact departure, fly"
+    assert _STUTTER.sub(r"\1", "takeoff, takeoff") == "takeoff, takeoff"  # a read-back repeat is kept

@@ -52,6 +52,7 @@ PROMPT = ("Air traffic control radio. Runway, cleared for takeoff, cleared to la
           "climb and maintain, descend, heading, flight level, squawk, roger, wilco, tower, ground, approach.")
 _JUNK = re.compile(r"_{2,}|\s{2,}")
 _WORD = re.compile(r"[a-z]+")
+_STUTTER = re.compile(r"\b(\w+)((?:[,.]?\s+\1\b){2,})", re.I)  # "fly, fly, fly, fly" -> "fly" (decoder loop)
 _ECHO = re.compile(r"^\s*air traffic control radio[.,]?\s*", re.I)  # the prompt's opening, echoed on unclear audio
 _PROMPT_WORDS = set(_WORD.findall(PROMPT.lower()))
 
@@ -364,7 +365,7 @@ class CaptionHub:
                     continue
                 if known is None and lang and prob >= 0.7:
                     feed.langs[lang] += 1
-                text = _ECHO.sub("", _JUNK.sub(" ", " ".join(parts))).strip(" ,.")
+                text = _STUTTER.sub(r"\1", _ECHO.sub("", _JUNK.sub(" ", " ".join(parts)))).strip(" ,.")
                 if not plausible(text):
                     continue
                 feed.seq += 1
