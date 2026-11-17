@@ -84,3 +84,35 @@ def test_hex_refresh_is_cached_two_seconds_and_survives_errors(clock):
     feed.refresh_hex("abcdef")  # lol 200 with no aircraft: fine
     session.routes["lol/hex"] = boom
     feed.refresh_hex("123456")  # both down: no exception
+
+
+def test_rate_limited_provider_is_skipped_then_slowed(monkeypatch):
+    from stratus.feeds import readsb as rs
+    from stratus.store import Store
+
+    calls = []
+
+    class Resp:
+        def __init__(self, code):
+            self.status_code = code
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"now": 0, "ac": []}
+
+    class Session:
+        def get(self, url, timeout=None):
+            calls.append(url)
+            return Resp(429 if "adsb.lol" in url else 200)
+
+    feed = rs.ReadsbFeed(Store(), Session())
+    for p in feed.providers:
+        p.limiter.acquire = lambda max_wait=0: True
+    assert feed._fetch("hex", hex="abc123") == []
+    lol = feed.providers[0]
+    assert lol.state == "rate_limited" and lol.limiter.min_interval > rs.BASE_INTERVAL_S
+    calls.clear()
+    feed._fetch("hex", hex="abc124")
+    assert "adsb.fi" in calls[0]  # the cooling-down provider is no longer asked first

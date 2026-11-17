@@ -128,7 +128,7 @@ def test_status_shape(client):
                 "last_error"):
         assert key in s["feeds"]["opensky"]
     assert s["feeds"]["opensky"]["mode"] == "anonymous" and s["feeds"]["opensky"]["credits_daily"] == 400
-    assert set(s["feeds"]["adsb.lol"]) == {"state", "last_ok", "last_error"}
+    assert set(s["feeds"]["adsb.lol"]) == {"state", "last_ok", "last_error", "interval_s"}
 
 
 def test_weather_picks_level_and_caches(client, session):

@@ -17,6 +17,8 @@ HEX_FRESH_S = 2.0
 MAX_QUEUE_WAIT_S = 3.0
 MAX_POS_AGE_S = 60.0  # a position older than this is not a fix: never merge it
 RATE_LIMIT_COOLDOWN_S = 60.0
+BASE_INTERVAL_S = 1.0  # per-provider spacing; a 429 widens it (x1.5, up to MAX_INTERVAL_S), successes narrow it back
+MAX_INTERVAL_S = 4.0
 
 
 class Provider:
@@ -24,14 +26,25 @@ class Provider:
         self.name = name
         self.point_url = point_url
         self.hex_url = hex_url
-        self.limiter = RateLimiter(1.0)
+        self.limiter = RateLimiter(BASE_INTERVAL_S)
         self.cooldown_until = 0.0
         self.state = "ok"
         self.last_ok: float | None = None
         self.last_error: str | None = None
 
     def status(self) -> dict:
-        return {"state": self.state, "last_ok": self.last_ok, "last_error": self.last_error}
+        return {"state": self.state, "last_ok": self.last_ok, "last_error": self.last_error,
+                "interval_s": round(self.limiter.min_interval, 2)}
+
+    def rate_limited(self, now: float) -> None:
+        """429: back off for a while and keep a slower pace afterwards."""
+        self.cooldown_until = now + RATE_LIMIT_COOLDOWN_S
+        self.limiter.min_interval = min(MAX_INTERVAL_S, self.limiter.min_interval * 1.5)
+        self.state, self.last_error = "rate_limited", "429"
+
+    def succeeded(self, now: float) -> None:
+        self.state, self.last_ok, self.last_error = "ok", now, None
+        self.limiter.min_interval = max(BASE_INTERVAL_S, self.limiter.min_interval * 0.97)
 
 
 def default_providers() -> list[Provider]:
@@ -90,15 +103,20 @@ class ReadsbFeed:
         self._lock = threading.Lock()
 
     def _fetch(self, kind: str, **fmt) -> list[Obs] | None:
-        for prov in self.providers:
+        # providers cooling down after a 429 go last instead of being hammered first
+        now = self.clock()
+        for prov in sorted(self.providers, key=lambda p: now < p.cooldown_until):
             if not prov.limiter.acquire(MAX_QUEUE_WAIT_S):
                 continue
             url = (prov.point_url if kind == "point" else prov.hex_url).format(**fmt)
             try:
                 resp = self.http.get(url, timeout=(5, 10))
+                if resp.status_code == 429:
+                    prov.rate_limited(self.clock())
+                    continue
                 resp.raise_for_status()
                 obs = parse_readsb(resp.json(), prov.name)
-                prov.state, prov.last_ok, prov.last_error = "ok", self.clock(), None
+                prov.succeeded(self.clock())
                 return obs
             except Exception as exc:
                 prov.state, prov.last_error = "degraded", str(exc)[:300]
@@ -115,12 +133,11 @@ class ReadsbFeed:
         try:
             resp = self.http.get(url, timeout=(5, 10))
             if resp.status_code == 429:
-                prov.cooldown_until = now + RATE_LIMIT_COOLDOWN_S
-                prov.state, prov.last_error = "rate_limited", "429"
+                prov.rate_limited(now)
                 return None
             resp.raise_for_status()
             obs = parse_readsb(resp.json(), prov.name)
-            prov.state, prov.last_ok, prov.last_error = "ok", self.clock(), None
+            prov.succeeded(self.clock())
             return obs
         except Exception as exc:
             prov.cooldown_until = now + 10.0

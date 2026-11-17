@@ -112,6 +112,7 @@ class Enricher:
         self.pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="enrich")
         self._pending: set = set()
         self._lock = threading.Lock()
+        self._done = threading.Condition(self._lock)
 
     def _lookup(self, kind: str, key: str, url: str, parser) -> None:
         try:
@@ -128,6 +129,7 @@ class Enricher:
         finally:
             with self._lock:
                 self._pending.discard((kind, key))
+                self._done.notify_all()
 
     def _get(self, kind: str, key: str, url: str, parser):
         val = self.cache.get((kind, key), MISSING)
@@ -152,6 +154,7 @@ class Enricher:
         finally:
             with self._lock:
                 self._pending.discard(("route-fr24", cs))
+                self._done.notify_all()
 
     def route(self, cs: str | None, selected: bool = False, hx: str | None = None):
         """Route for a callsign. With FR24 configured and `selected` (the user opened this plane) FR24 is asked first;
@@ -204,5 +207,63 @@ class Enricher:
             self.route(cs)
         return len(cands)
 
+    def wait(self, hx: str, cs: str | None, timeout: float) -> bool:
+        """Block up to `timeout` s while lookups for this plane (aircraft, photo, route) are in flight, so a freshly
+        opened flight card can get everything in its first response. True when nothing is pending any more."""
+        keys = {("aircraft", hx), ("photo", hx)}
+        if cs:
+            keys |= {("route", cs), ("route-fr24", cs)}
+        with self._done:
+            return self._done.wait_for(lambda: not (keys & self._pending), timeout)
+
     def photo(self, hx: str):
         return self._get("photo", hx, PHOTO_URL.format(hex=hx), parse_photo)
+
+
+DEPART_MAX_ALT_FT = 2500  # first observed point at or below this (or on the ground)...
+DEPART_CLIMB_FT = 4000  # ...followed by a climb of at least this much
+DEPART_RADIUS_NM = 8.0
+
+
+def observed_departure(trail: list, nearest) -> dict | None:
+    """Airport the plane was seen taking off from, or None.
+
+    `trail` is the stored track ([lat, lon, alt|None, ts], oldest first; None altitude = on the ground). It counts as an
+    observed departure when it starts on the ground or low and then climbs, within DEPART_RADIUS_NM of an airport.
+    `nearest(lat, lon, nm)` returns airport dicts (OurAirports shape). Large/medium airports win over small fields.
+    """
+    if len(trail) < 3:
+        return None
+    lat, lon, alt0 = trail[0][0], trail[0][1], trail[0][2]
+    base = 0 if alt0 is None else alt0
+    if base > DEPART_MAX_ALT_FT:
+        return None
+    if max((pt[2] or 0) for pt in trail) - base < DEPART_CLIMB_FT:
+        return None
+    cands = nearest(lat, lon, DEPART_RADIUS_NM)
+    if not cands:
+        return None
+    rank = {"large": 0, "medium": 1}
+    best = min(cands, key=lambda a: (rank.get(a.get("type"), 2), haversine_nm(lat, lon, a["lat"], a["lon"])))
+    return best
+
+
+def reconcile_route(route: dict | None, departed: dict | None, lat: float, lon: float, gnd: bool) -> dict | None:
+    """One route the client can show as is.
+
+    - database route that fits the position (and, if we saw the take-off, starts there): kept, plausible
+    - observed take-off elsewhere: the database describes another leg of that flight number; show the observed origin
+      with an unknown destination instead of a wrong pair
+    - database route that does not fit and nothing observed: dropped (a wrong route is worse than none)
+    """
+    if departed is not None:
+        origin = {"icao": departed["icao"], "iata": departed.get("iata"), "name": departed.get("name"),
+                  "city": departed.get("city"), "country": departed.get("country"),
+                  "lat": departed["lat"], "lon": departed["lon"]}
+        if route and route["origin"].get("icao") == departed["icao"] and route_plausible(route, lat, lon, gnd):
+            return {**route, "plausible": True, "observed": True}
+        base = {k: route.get(k) for k in ("callsign", "airline", "airline_iata", "airline_icao")} if route else {}
+        return {**base, "origin": origin, "destination": None, "source": "observed", "plausible": False, "observed": True}
+    if route and route_plausible(route, lat, lon, gnd):
+        return {**route, "plausible": True}
+    return None

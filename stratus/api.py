@@ -17,7 +17,7 @@ from .airports import Airports
 from .atc import AUDIO_HEADERS, AtcCatalog
 from .audiohub import AudioHub, Unavailable
 from .config import Config
-from .enrich import Enricher, route_plausible
+from .enrich import Enricher, observed_departure, reconcile_route
 from .feeds.opensky import OpenSkyPoller
 from .feeds.readsb import MAX_RADIUS_NM, ReadsbFeed
 from .feeds.sweep import Sweeper
@@ -34,6 +34,7 @@ log = logging.getLogger(__name__)
 PERSIST_EVERY_S = 60.0
 MAINTAIN_EVERY_S = 10.0  # also the refresh rate of estimated positions
 ROUTE_PREFETCH_EVERY_S = 2.0
+FIRST_WAIT_S = 1.5  # max wait for a just-opened plane's aircraft/route/photo lookups
 HASHED_ASSET = re.compile(r"[-.][A-Za-z0-9_-]{8,}\.(js|css|woff2?|png|svg|jpg|webp|avif)$")
 PLACEHOLDER = (b"<!doctype html><meta charset=utf-8><title>Stratus</title>"
                b"<p>Stratus backend is running. Frontend not built yet (web/dist missing).</p>")
@@ -198,10 +199,17 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
                 and rt.fr24.position_due(hx):
             rt.enrich.pool.submit(rt.fr24_refresh_position, hx, plane["cs"], reg)
         route = rt.enrich.route(plane["cs"], selected=True, hx=hx)
-        if route:
-            route = {**route, "plausible": route_plausible(route, fix_lat, fix_lon, plane["gnd"])}
-        return _json({"plane": plane, "trail": trail, "aircraft": rt.enrich.aircraft(hx), "route": route,
-                      "photo": rt.enrich.photo(hx), "estimated_since": est_since, "fr24": rt.fr24.budget(),
+        aircraft, photo = rt.enrich.aircraft(hx), rt.enrich.photo(hx)
+        if route is None or aircraft is None or photo is None:
+            # first look at this plane: lookups were just started; a short wait fills the card in one go
+            # (cached afterwards, so later polls never wait; a slow upstream costs at most FIRST_WAIT_S once)
+            rt.enrich.wait(hx, plane["cs"], FIRST_WAIT_S)
+            route = rt.enrich.route(plane["cs"], selected=True, hx=hx)
+            aircraft, photo = rt.enrich.aircraft(hx), rt.enrich.photo(hx)
+        departed = observed_departure(trail, rt.airports.nearest) if rt.airports.list else None
+        route = reconcile_route(route, departed, fix_lat, fix_lon, plane["gnd"])
+        return _json({"plane": plane, "trail": trail, "aircraft": aircraft, "route": route,
+                      "photo": photo, "estimated_since": est_since, "fr24": rt.fr24.budget(),
                       "full_track": rt.fr24.full_track_capability()})
 
     @app.get("/api/aircraft/<hx>/full-track")
