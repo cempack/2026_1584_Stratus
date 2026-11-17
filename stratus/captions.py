@@ -14,6 +14,7 @@ Pipeline, per feed (shared by every subscriber, like the audio relay):
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import re
 import threading
@@ -33,7 +34,9 @@ PRE_ROLL_S = 0.25
 IDLE_S = 20.0
 HISTORY = 6
 BACKLOG = 3
-CPU_THREADS = 2
+CPU_THREADS = max(2, min(4, (os.cpu_count() or 2) // 2))
+FALLBACK_MODEL = "base"  # ~3x faster than "small": used when "small" can't keep up with real time on this machine
+SLOW_RATIO = 1.0  # processing time / audio duration above which the model is too slow
 PROMPT = ("Air traffic control radio. Runway, cleared for takeoff, cleared to land, line up and wait, contact departure, "
           "climb and maintain, descend, heading, flight level, squawk, roger, wilco, tower, ground, approach.")
 _JUNK = re.compile(r"_{2,}|\s{2,}")
@@ -178,10 +181,14 @@ class _Feed:
 
 
 class CaptionHub:
-    def __init__(self, audio, cache_dir: Path, model: str = "small", enabled: bool = True):
+    def __init__(self, audio, cache_dir: Path, model: str = "", enabled: bool = True):
+        """`model` empty = automatic: "small", stepping down to FALLBACK_MODEL if it is slower than real time."""
         self.audio = audio
         self.cache_dir = Path(cache_dir) / "whisper"
-        self.model_name = model
+        self.auto = not model
+        self.model_name = model or "small"
+        self.ratio: float | None = None  # EMA of processing time / audio duration
+        self.calls = 0
         self.enabled = enabled and available()
         self.feeds: dict[str, _Feed] = {}
         self.lock = threading.Lock()
@@ -191,7 +198,9 @@ class CaptionHub:
         self._worker: threading.Thread | None = None
 
     def status(self) -> dict:
-        return {"enabled": self.enabled, "model": self.model_name, "state": self.model_state, "feeds": len(self.feeds)}
+        return {"enabled": self.enabled, "model": self.model_name, "auto": self.auto, "state": self.model_state,
+                "feeds": len(self.feeds), "threads": CPU_THREADS, "cpus": os.cpu_count(),
+                "speed_ratio": None if self.ratio is None else round(self.ratio, 2)}
 
     def _drop(self, feed: _Feed) -> None:
         with self.lock:
@@ -245,6 +254,14 @@ class CaptionHub:
             text = _ECHO.sub("", _JUNK.sub(" ", " ".join(parts))).strip(" ,.")
             if not plausible(text):
                 continue
+            took = time.monotonic() - t0
+            r = took / max(1.0, len(pcm) / RATE)
+            self.ratio = r if self.ratio is None else 0.7 * self.ratio + 0.3 * r
+            self.calls += 1
+            if self.auto and self.model_name != FALLBACK_MODEL and self.calls >= 3 and self.ratio > SLOW_RATIO:
+                log.warning("whisper %s too slow here (x%.1f real time): switching to %s", self.model_name, self.ratio, FALLBACK_MODEL)
+                self.model_name, self.ratio, self.calls = FALLBACK_MODEL, None, 0
+                self._load()
             feed.seq += 1
             feed.publish({"type": "caption", "id": feed.seq, "t": round(start, 1), "dur": round(len(pcm) / RATE, 1),
                           "text": text, "lang": known or feed.language or info.language, "ms": int((time.monotonic() - t0) * 1000)})
