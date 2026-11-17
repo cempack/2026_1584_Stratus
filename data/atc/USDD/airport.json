@@ -1,0 +1,11 @@
+{
+  "icao": "USDD",
+  "name": "Salekhard Airport",
+  "city": "Salekhard",
+  "country": "RU",
+  "lat": 66.5908,
+  "lng": 66.611,
+  "order": [
+    "usdd1.pls"
+  ]
+}
