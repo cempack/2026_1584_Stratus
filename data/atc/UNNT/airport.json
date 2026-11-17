@@ -1,0 +1,11 @@
+{
+  "icao": "UNNT",
+  "name": "Novosibirsk Tolmachevo Airport",
+  "city": "Novosibirsk",
+  "country": "RU",
+  "lat": 55.01976,
+  "lng": 82.61867,
+  "order": [
+    "unnt.pls"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "icao": "USTR",
+  "name": "Roshchino International Airport",
+  "city": "Tyumen",
+  "country": "RU",
+  "lat": 57.17898,
+  "lng": 65.3277,
+  "order": [
+    "ustr.pls"
+  ]
+}
