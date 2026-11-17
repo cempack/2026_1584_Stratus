@@ -26,7 +26,14 @@ export function guessPlace(timeZone: string | undefined, utcOffsetMin: number): 
   return { lat, lon: Math.max(-180, Math.min(180, -utcOffsetMin / 4)) };
 }
 
+export const PLACE_KEY = "stratus.place";
+
+/** The user's place: the real one if they used "locate me" once, else the time-zone guess. */
 export function localPlace(now = new Date()): Place {
+  try {
+    const p = JSON.parse(localStorage.getItem(PLACE_KEY) ?? "null") as Place | null;
+    if (p && Number.isFinite(p.lat) && Number.isFinite(p.lon)) return { lat: p.lat, lon: p.lon };
+  } catch { /* no storage: guess */ }
   let tz: string | undefined;
   try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* old engine */ }
   return guessPlace(tz, now.getTimezoneOffset());

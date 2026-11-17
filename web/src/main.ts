@@ -15,6 +15,7 @@ import type { LayerPrefs } from "./lib/prefs";
 import { MetarFeed } from "./map/metar";
 import { PlaneLayer } from "./map/planes";
 import { Radar } from "./map/radar";
+import { PLACE_KEY } from "./lib/daylight";
 import { imageryTileSize, installImagery } from "./map/imagery";
 import { adaptQuality, initialPixelRatio } from "./map/quality";
 import { restyle } from "./map/restyle";
@@ -570,6 +571,36 @@ initSearch({
 // ---------- toolbar, layers menu ----------
 $("zoom-in").addEventListener("click", () => { if (follow) fZoom = clampZoom(fZoom + 1); else map.zoomIn({ duration: 300 }); });
 $("zoom-out").addEventListener("click", () => { if (follow) fZoom = clampZoom(fZoom - 1); else map.zoomOut({ duration: 300 }); });
+
+// ---------- locate me: fly to the user's position and mark it (blue dot + accuracy halo) ----------
+let meMarker: maplibregl.Marker | null = null;
+$("locate").addEventListener("click", () => {
+  const btn = $("locate");
+  if (!("geolocation" in navigator)) { toast("Localisation non disponible sur cet appareil"); return; }
+  if (btn.getAttribute("aria-busy") === "true") return;
+  btn.setAttribute("aria-busy", "true");
+  navigator.geolocation.getCurrentPosition((pos) => {
+    btn.removeAttribute("aria-busy");
+    const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+    try { localStorage.setItem(PLACE_KEY, JSON.stringify({ lat: +lat.toFixed(2), lon: +lon.toFixed(2) })); } catch { /* private mode */ }
+    if (follow) setFollow(false);
+    if (!meMarker) {
+      const el = document.createElement("div");
+      el.className = "me";
+      el.innerHTML = "<i class=\"me-halo\"></i><i class=\"me-dot\"></i>";
+      meMarker = new maplibregl.Marker({ element: el, pitchAlignment: "map", rotationAlignment: "map" });
+    }
+    meMarker.setLngLat([lon, lat]).addTo(map);
+    // accuracy halo in screen px at the target zoom (metres per pixel at that latitude), kept readable
+    const zoom = Math.max(map.getZoom(), accuracy > 5000 ? 8 : 10);
+    const mpp = (156543.03 * Math.cos((lat * Math.PI) / 180)) / 2 ** (zoom + 1);
+    meMarker.getElement().style.setProperty("--acc", `${Math.min(140, Math.max(18, (accuracy / mpp) * 2))}px`);
+    map.flyTo({ center: [lon, lat], zoom, pitch: 0, bearing: 0, speed: 1.1, curve: 1.4, padding: padding(), essential: false });
+  }, (err) => {
+    btn.removeAttribute("aria-busy");
+    toast(err.code === err.PERMISSION_DENIED ? "Localisation refusée : autorisez-la dans le navigateur" : "Position introuvable pour le moment");
+  }, { enableHighAccuracy: false, timeout: 12_000, maximumAge: 300_000 });
+});
 /** Theme or satellite changed: patch the live style in place (tiles, planes and radar stay), full reload only as a fallback. */
 let styled = { theme: currentTheme(), satellite };
 function applyBasemap(theme: Theme, sat: boolean) {
