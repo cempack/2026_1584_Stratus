@@ -186,7 +186,7 @@ class CaptionHub:
         self.audio = audio
         self.cache_dir = Path(cache_dir) / "whisper"
         self.auto = not model
-        self.model_name = model or "small"
+        self.model_name = model or self._remembered() or "small"
         self.ratio: float | None = None  # EMA of processing time / audio duration
         self.calls = 0
         self.enabled = enabled and available()
@@ -196,6 +196,14 @@ class CaptionHub:
         self.model = None
         self.model_state = "idle"  # idle | loading | ready | error
         self._worker: threading.Thread | None = None
+
+    def _remembered(self) -> str | None:
+        """Model chosen by the automatic fallback on an earlier run (kept on the cache volume)."""
+        try:
+            name = (self.cache_dir / "auto-model.txt").read_text().strip()
+            return name if name in ("small", FALLBACK_MODEL) else None
+        except OSError:
+            return None
 
     def status(self) -> dict:
         return {"enabled": self.enabled, "model": self.model_name, "auto": self.auto, "state": self.model_state,
@@ -261,6 +269,11 @@ class CaptionHub:
             if self.auto and self.model_name != FALLBACK_MODEL and self.calls >= 3 and self.ratio > SLOW_RATIO:
                 log.warning("whisper %s too slow here (x%.1f real time): switching to %s", self.model_name, self.ratio, FALLBACK_MODEL)
                 self.model_name, self.ratio, self.calls = FALLBACK_MODEL, None, 0
+                try:
+                    self.cache_dir.mkdir(parents=True, exist_ok=True)
+                    (self.cache_dir / "auto-model.txt").write_text(FALLBACK_MODEL)
+                except OSError:
+                    pass
                 self._load()
             feed.seq += 1
             feed.publish({"type": "caption", "id": feed.seq, "t": round(start, 1), "dur": round(len(pcm) / RATE, 1),
