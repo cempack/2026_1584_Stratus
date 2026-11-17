@@ -1,4 +1,8 @@
-"""Live English subtitles for ATC feeds: Whisper (faster-whisper, CPU) transcribes and translates each transmission.
+"""Live English subtitles for ATC feeds: Whisper transcribes and translates each transmission.
+
+Engine: Whisper large-v3-turbo on Cloudflare Workers AI (worker `stratus-asr`, only callable from the Stratus server's
+IP), with the local faster-whisper model as a fallback. The 2-CPU server can only run Whisper "base" in real time,
+which is too weak for radio audio; large-v3-turbo is far better and answers in ~1-3 s.
 
 Pipeline, per feed (shared by every subscriber, like the audio relay):
   relay MP3 bytes -> PyAV incremental decode -> 16 kHz mono PCM -> squelch splitter -> one Whisper worker -> subscribers
@@ -13,15 +17,19 @@ Pipeline, per feed (shared by every subscriber, like the audio relay):
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import queue
 import re
 import threading
 import time
+import wave
 from collections import Counter, deque
 from collections.abc import Iterator
 from pathlib import Path
+
+import requests
 
 log = logging.getLogger("stratus.captions")
 
@@ -35,6 +43,9 @@ IDLE_S = 20.0
 HISTORY = 6
 BACKLOG = 3
 CPU_THREADS = max(2, min(4, (os.cpu_count() or 2) // 2))
+REMOTE_URL = "https://stratus-asr.elliotmoreau19.workers.dev/"  # Workers AI, Whisper large-v3-turbo (IP-allowlisted)
+REMOTE_PAUSE_S = 600  # after 3 failures in a row, use the local model for this long
+WORKERS = 3  # remote calls run in parallel (local ones are serialised by local_lock)
 FALLBACK_MODEL = "base"  # ~3x faster than "small": used when "small" can't keep up with real time on this machine
 SLOW_RATIO = 1.0  # processing time / audio duration above which the model is too slow
 PROMPT = ("Air traffic control radio. Runway, cleared for takeoff, cleared to land, line up and wait, contact departure, "
@@ -61,13 +72,33 @@ def plausible(text: str) -> bool:
     return True
 
 
-def available() -> bool:
+def decode_available() -> bool:
     try:
         import av  # noqa: F401
+        import numpy  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def local_available() -> bool:
+    try:
         import faster_whisper  # noqa: F401
         return True
     except Exception:
         return False
+
+
+def to_wav(pcm) -> bytes:
+    """16-bit mono WAV of 16 kHz float PCM (what the Worker uploads to Whisper: ~32 KB per second)."""
+    import numpy as np
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(RATE)
+        w.writeframes((np.clip(pcm, -1, 1) * 32767).astype("<i2").tobytes())
+    return buf.getvalue()
 
 
 class Splitter:
@@ -126,6 +157,7 @@ class _Feed:
         self.last_sub = time.monotonic()
         self.stop = threading.Event()
         self.seq = 0
+        self.lock = threading.Lock()
         self.langs: Counter = Counter()  # confident language detections: the feed's language once it is clear
         threading.Thread(target=self._run, name=f"captions:{url[-24:]}", daemon=True).start()
 
@@ -181,21 +213,29 @@ class _Feed:
 
 
 class CaptionHub:
-    def __init__(self, audio, cache_dir: Path, model: str = "", enabled: bool = True):
-        """`model` empty = automatic: "small", stepping down to FALLBACK_MODEL if it is slower than real time."""
+    """Engines, in order: the Workers AI Worker (Whisper large-v3-turbo, `remote_url`), then the local faster-whisper
+    model if the Worker keeps failing (or locally, where the Worker refuses the caller's IP)."""
+
+    def __init__(self, audio, cache_dir: Path, model: str = "", enabled: bool = True, remote_url: str = REMOTE_URL):
         self.audio = audio
         self.cache_dir = Path(cache_dir) / "whisper"
         self.auto = not model
         self.model_name = model or self._remembered() or "small"
-        self.ratio: float | None = None  # EMA of processing time / audio duration
+        self.ratio: float | None = None  # EMA of local processing time / audio duration
         self.calls = 0
-        self.enabled = enabled and available()
+        self.remote_url = remote_url
+        self.remote_off_until = 0.0
+        self.remote_fails = 0
+        self.remote_ms: float | None = None
+        self.http = requests.Session()
+        self.enabled = enabled and decode_available() and (bool(remote_url) or local_available())
         self.feeds: dict[str, _Feed] = {}
         self.lock = threading.Lock()
+        self.local_lock = threading.Lock()  # one local transcription at a time (CPU bound)
         self.work: queue.Queue = queue.Queue()
         self.model = None
-        self.model_state = "idle"  # idle | loading | ready | error
-        self._worker: threading.Thread | None = None
+        self.model_state = "ready" if remote_url else "idle"  # idle | loading | ready | error
+        self._workers: list[threading.Thread] = []
 
     def _remembered(self) -> str | None:
         """Model chosen by the automatic fallback on an earlier run (kept on the cache volume)."""
@@ -205,10 +245,15 @@ class CaptionHub:
         except OSError:
             return None
 
+    @property
+    def engine(self) -> str:
+        return "workers-ai" if self.remote_url and time.monotonic() >= self.remote_off_until else f"local:{self.model_name}"
+
     def status(self) -> dict:
-        return {"enabled": self.enabled, "model": self.model_name, "auto": self.auto, "state": self.model_state,
-                "feeds": len(self.feeds), "threads": CPU_THREADS, "cpus": os.cpu_count(),
-                "speed_ratio": None if self.ratio is None else round(self.ratio, 2)}
+        return {"enabled": self.enabled, "engine": self.engine, "state": self.model_state, "feeds": len(self.feeds),
+                "remote_ms": None if self.remote_ms is None else int(self.remote_ms), "remote_fails": self.remote_fails,
+                "local_threads": CPU_THREADS, "cpus": os.cpu_count(),
+                "local_speed_ratio": None if self.ratio is None else round(self.ratio, 2)}
 
     def _drop(self, feed: _Feed) -> None:
         with self.lock:
@@ -221,63 +266,110 @@ class CaptionHub:
             feed.pending.popleft()  # stay live: drop the oldest calls rather than fall behind
         self.work.put(feed)
 
-    def _load(self) -> None:
+    def _broadcast(self, state: str, detail: str | None = None) -> None:
+        for f in list(self.feeds.values()):
+            f.publish({"type": "status", "state": state, **({"detail": detail} if detail else {})})
+
+    # ---- local engine ----
+    def _load(self) -> bool:
+        if self.model is not None:
+            return True
+        if not local_available():
+            return False
         from faster_whisper import WhisperModel
         self.model_state = "loading"
-        for f in list(self.feeds.values()):
-            f.publish({"type": "status", "state": "loading"})
+        self._broadcast("loading")
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             self.model = WhisperModel(self.model_name, device="cpu", compute_type="int8", cpu_threads=CPU_THREADS,
                                       download_root=str(self.cache_dir))
-            self.model_state = "ready"
         except Exception as exc:
             log.exception("whisper model load failed")
             self.model_state = "error"
-            for f in list(self.feeds.values()):
-                f.publish({"type": "status", "state": "error", "detail": str(exc)[:120]})
-            return
-        for f in list(self.feeds.values()):
-            f.publish({"type": "status", "state": "ready"})
+            self._broadcast("error", str(exc)[:120])
+            return False
+        self.model_state = "ready"
+        self._broadcast("ready")
+        return True
 
-    def _work(self) -> None:
-        self._load()
-        while True:
-            feed = self.work.get()
-            if not feed.pending or self.model is None:
-                continue
-            start, pcm = feed.pending.popleft()
+    def _local(self, pcm, language: str | None) -> tuple[list[str], str | None, float]:
+        with self.local_lock:
+            if not self._load():
+                raise RuntimeError("no local model")
             t0 = time.monotonic()
-            try:
-                known = feed.language
-                segs, info = self.model.transcribe(
-                    pcm, task="translate", language=known, beam_size=1, temperature=0.0, condition_on_previous_text=False,
-                    initial_prompt=PROMPT, no_repeat_ngram_size=3, vad_filter=False)
-                parts = [s.text for s in segs if not (s.no_speech_prob > 0.6 and s.avg_logprob < -1.0)]
-            except Exception:
-                log.exception("transcription failed")
-                continue
-            if known is None and info.language_probability >= 0.7:
-                feed.langs[info.language] += 1
-            text = _ECHO.sub("", _JUNK.sub(" ", " ".join(parts))).strip(" ,.")
-            if not plausible(text):
-                continue
-            took = time.monotonic() - t0
-            r = took / max(1.0, len(pcm) / RATE)
+            segs, info = self.model.transcribe(
+                pcm, task="translate", language=language, beam_size=1, temperature=0.0, condition_on_previous_text=False,
+                initial_prompt=PROMPT, no_repeat_ngram_size=3, vad_filter=False)
+            parts = [s.text for s in segs if not (s.no_speech_prob > 0.6 and s.avg_logprob < -1.0)]
+            r = (time.monotonic() - t0) / max(1.0, len(pcm) / RATE)
             self.ratio = r if self.ratio is None else 0.7 * self.ratio + 0.3 * r
             self.calls += 1
             if self.auto and self.model_name != FALLBACK_MODEL and self.calls >= 3 and self.ratio > SLOW_RATIO:
                 log.warning("whisper %s too slow here (x%.1f real time): switching to %s", self.model_name, self.ratio, FALLBACK_MODEL)
-                self.model_name, self.ratio, self.calls = FALLBACK_MODEL, None, 0
+                self.model_name, self.ratio, self.calls, self.model = FALLBACK_MODEL, None, 0, None
                 try:
                     self.cache_dir.mkdir(parents=True, exist_ok=True)
                     (self.cache_dir / "auto-model.txt").write_text(FALLBACK_MODEL)
                 except OSError:
                     pass
-                self._load()
-            feed.seq += 1
-            feed.publish({"type": "caption", "id": feed.seq, "t": round(start, 1), "dur": round(len(pcm) / RATE, 1),
-                          "text": text, "lang": known or feed.language or info.language, "ms": int((time.monotonic() - t0) * 1000)})
+            return parts, info.language, info.language_probability
+
+    # ---- remote engine (Workers AI) ----
+    def _remote(self, pcm, language: str | None) -> tuple[list[str], str | None, float]:
+        t0 = time.monotonic()
+        params = {"task": "translate", "prompt": PROMPT, **({"language": language} if language else {})}
+        resp = self.http.post(self.remote_url, params=params, data=to_wav(pcm), timeout=(5, 30),
+                              headers={"Content-Type": "audio/wav", "User-Agent": "Stratus/2.0"})
+        resp.raise_for_status()
+        d = resp.json()
+        ms = (time.monotonic() - t0) * 1000
+        self.remote_ms = ms if self.remote_ms is None else 0.7 * self.remote_ms + 0.3 * ms
+        segs = d.get("segments") or []
+        parts = [s.get("text", "") for s in segs
+                 if not ((s.get("no_speech_prob") or 0) > 0.6 and (s.get("avg_logprob") or 0) < -1.0)
+                 and (s.get("compression_ratio") or 0) < 2.6] if segs else [d.get("text", "")]
+        info = d.get("info") or {}
+        return parts, info.get("language"), float(info.get("language_probability") or 0)
+
+    def _transcribe(self, pcm, language: str | None) -> tuple[list[str], str | None, float]:
+        if self.remote_url and time.monotonic() >= self.remote_off_until:
+            try:
+                out = self._remote(pcm, language)
+                self.remote_fails = 0
+                return out
+            except Exception as exc:
+                self.remote_fails += 1
+                log.info("workers-ai transcription failed (%d): %s", self.remote_fails, exc)
+                if self.remote_fails >= 3:
+                    log.warning("workers-ai unavailable: local model for %d s", REMOTE_PAUSE_S)
+                    self.remote_off_until = time.monotonic() + REMOTE_PAUSE_S
+                    self.remote_fails = 0
+                if not local_available():
+                    raise
+        return self._local(pcm, language)
+
+    def _work(self) -> None:
+        while True:
+            feed = self.work.get()
+            with feed.lock:  # one call at a time per feed: captions stay in order
+                if not feed.pending:
+                    continue
+                start, pcm = feed.pending.popleft()
+                t0 = time.monotonic()
+                known = feed.language
+                try:
+                    parts, lang, prob = self._transcribe(pcm, known)
+                except Exception:
+                    log.exception("transcription failed")
+                    continue
+                if known is None and lang and prob >= 0.7:
+                    feed.langs[lang] += 1
+                text = _ECHO.sub("", _JUNK.sub(" ", " ".join(parts))).strip(" ,.")
+                if not plausible(text):
+                    continue
+                feed.seq += 1
+                feed.publish({"type": "caption", "id": feed.seq, "t": round(start, 1), "dur": round(len(pcm) / RATE, 1),
+                              "text": text, "lang": known or feed.language or lang, "ms": int((time.monotonic() - t0) * 1000)})
 
     def subscribe(self, url: str) -> Iterator[dict]:
         """Events for one feed: the model state, the recent captions, then live ones. Ends when the client leaves."""
@@ -287,9 +379,11 @@ class CaptionHub:
             if feed is None:
                 feed = self.feeds[url] = _Feed(self, url)
             feed.subs.add(q)
-            if self._worker is None:
-                self._worker = threading.Thread(target=self._work, name="whisper", daemon=True)
-                self._worker.start()
+            if not self._workers:
+                for i in range(WORKERS):
+                    t = threading.Thread(target=self._work, name=f"captions-{i}", daemon=True)
+                    t.start()
+                    self._workers.append(t)
         try:
             yield {"type": "status", "state": self.model_state if self.model_state != "idle" else "loading"}
             for ev in list(feed.history):

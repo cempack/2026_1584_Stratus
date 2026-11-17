@@ -60,7 +60,8 @@ class Runtime:
                                enabled=cfg.sweep_enabled)
         self.atc = AtcCatalog(cfg.atc_dir)
         self.audio = AudioHub(AUDIO_HEADERS)
-        self.captions = CaptionHub(self.audio, self.cfg.cache_dir, self.cfg.captions_model, self.cfg.captions_enabled)
+        self.captions = CaptionHub(self.audio, self.cfg.cache_dir, self.cfg.captions_model, self.cfg.captions_enabled,
+                                   **({} if self.cfg.captions_remote is None else {"remote_url": self.cfg.captions_remote}))
         self.stop = threading.Event()
         self.started = False
         self._start_lock = threading.Lock()

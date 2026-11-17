@@ -33,6 +33,13 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw not in ("0", "false", "no", "off")
 
 
+def _remote_env() -> str | None:
+    raw = os.environ.get("STRATUS_ASR_URL")
+    if raw is None or not raw.strip():
+        return None
+    return "" if raw.strip().lower() in ("off", "0", "none", "local") else raw.strip()
+
+
 @dataclass
 class Config:
     opensky_client_id: str = ""
@@ -48,7 +55,8 @@ class Config:
     sweep_interval: float = 1.5
     estimates_enabled: bool = True
     captions_enabled: bool = True  # live ATC subtitles (needs faster-whisper; off when it is not installed)
-    captions_model: str = ""  # empty = automatic ("small", "base" if the machine is too slow)
+    captions_model: str = ""  # local fallback model; empty = automatic ("small", "base" if the machine is too slow)
+    captions_remote: str | None = None  # Workers AI endpoint; None = the default Worker, "" = local only
 
     @property
     def cache_dir(self) -> Path:
@@ -78,6 +86,7 @@ class Config:
             estimates_enabled=_env_bool("STRATUS_ESTIMATES", True),
             captions_enabled=_env_bool("STRATUS_CAPTIONS", True),
             captions_model=os.environ.get("STRATUS_CAPTIONS_MODEL", "").strip(),
+            captions_remote=_remote_env(),
         )
         if data_dir:
             cfg.data_dir = Path(data_dir)
