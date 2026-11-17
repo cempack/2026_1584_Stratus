@@ -2,7 +2,7 @@
 // symbol layer can recolour them (icon-color) and outline them (icon-halo) per feature.
 import type { Shape } from "../lib/core";
 
-const PATHS: Record<Shape, string> = {
+export const PATHS: Record<Shape, string> = {
   jet: "M32 4c2 0 3 3 3 6v14l21 12v5l-21-6v13l7 5v4l-10-3-10 3v-4l7-5V35L8 41v-5l21-12V10c0-3 1-6 3-6z",
   heavy: "M32 2c2.4 0 3.5 3.5 3.5 7v14l24 14v6l-24-7v15l8 6v4l-11.5-3L20.5 61v-4l8-6V36l-24 7v-6l24-14V9c0-3.5 1.1-7 3.5-7z",
   turboprop: "M32 6c1.8 0 2.6 2.5 2.6 5v11h24v6l-24 3v16l7 4v4l-9.6-2-9.6 2v-4l7-4V31l-24-3v-6h24V11c0-2.5.8-5 2.6-5z",

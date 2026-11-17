@@ -37,6 +37,7 @@ export class Panel {
   private photoUrl = "";
   private photoTried = new Set<string>();
   private photoRetryAt = 0;
+  private photoSeq = 0;
   private shownAt = 0;
   private logoIata = "";
   private lastDetail: Detail | null = null;
@@ -49,7 +50,7 @@ export class Panel {
     $("p-follow").addEventListener("click", () => h.onFollow($("p-follow").getAttribute("aria-pressed") !== "true"));
     const img = $<HTMLImageElement>("p-img");
     img.addEventListener("load", () => { if (img.currentSrc && img.getAttribute("src")) this.setHero("ready"); });
-    img.addEventListener("error", () => this.photoFailed());
+    img.addEventListener("error", () => { if (img.dataset.stage !== "thumb") this.photoFailed(); });
     const logo = $<HTMLImageElement>("p-logo-img");
     logo.addEventListener("load", () => ($("p-logo").dataset.state = "img"));
     logo.addEventListener("error", () => { $("p-logo").dataset.state = "mono"; });
@@ -61,10 +62,10 @@ export class Panel {
 
   show(t: Track | undefined, hex: string) {
     this.lastDetail = null;
-    this.photoUrl = ""; this.photoTried.clear(); this.photoRetryAt = 0; this.logoIata = "";
+    this.photoUrl = ""; this.photoTried.clear(); this.photoRetryAt = 0; this.logoIata = ""; this.photoSeq++;
     this.shownAt = serverNow();
     const img = $<HTMLImageElement>("p-img");
-    img.removeAttribute("src"); img.alt = "";
+    img.removeAttribute("src"); img.alt = ""; delete img.dataset.stage;
     this.setHero("loading");
     $("p-logo").dataset.state = "mono";
     $<HTMLImageElement>("p-logo-img").removeAttribute("src");
@@ -137,13 +138,32 @@ export class Panel {
     else el.textContent = txt;
   }
 
+  /**
+   * Progressive photo: the small thumbnail (usually already in the CDN cache, a few KB) shows at once, softly blurred,
+   * while the large one downloads and decodes off-screen; then the sharp one replaces it in place.
+   */
   private loadPhoto(url: string, thumb: string | null) {
     const img = $<HTMLImageElement>("p-img");
+    const seq = ++this.photoSeq;
     this.photoUrl = url;
     this.photoTried.add(url);
-    this.setHero("loading");
-    img.dataset.thumb = thumb ?? "";
-    img.src = url;
+    if (thumb) { img.dataset.stage = "thumb"; img.src = thumb; } else { delete img.dataset.stage; this.setHero("loading"); }
+    const big = new Image();
+    big.decoding = "async";
+    big.onload = () => {
+      void big.decode().catch(() => undefined).then(() => {
+        if (seq !== this.photoSeq) return;
+        img.dataset.stage = "full";
+        img.src = url;
+      });
+    };
+    big.onerror = () => {
+      if (seq !== this.photoSeq) return;
+      if (thumb) img.dataset.stage = "full"; // keep the thumbnail, just stop blurring it
+      else { this.setHero("none"); text("p-fb-note", "Photo indisponible"); this.photoRetryAt = serverNow() + 30; }
+    };
+    img.dataset.thumb = "";
+    big.src = url;
   }
 
   private photoFailed() {
@@ -217,14 +237,18 @@ export class Panel {
 
     if (d) {
       const o = route?.origin, dst = route?.destination;
-      $("p-route").hidden = !(o && dst);
-      if (o && dst) {
+      $("p-route").hidden = !o;
+      $("p-route").classList.toggle("partial", !!o && !dst);
+      $("p-route").classList.remove("unconfirmed");
+      if (o) {
         text("r-o", o.iata ?? o.icao); text("r-oc", o.city ?? o.name ?? "");
-        text("r-d", dst.iata ?? dst.icao); text("r-dc", dst.city ?? dst.name ?? "");
-        $("p-route").classList.toggle("unconfirmed", !route!.plausible);
+        text("r-d", dst ? dst.iata ?? dst.icao : "?"); text("r-dc", dst ? dst.city ?? dst.name ?? "" : "Destination inconnue");
       }
-      const src = route?.source === "fr24" ? "Itinéraire : FR24" : route?.source === "adsbdb" ? `Itinéraire : adsbdb${route.plausible ? "" : ", non confirmé"}` : "";
-      text("r-src", o && dst ? src : "");
+      const src = !o ? ""
+        : route?.source === "observed" ? "Décollage observé par Stratus"
+        : route?.source === "fr24" ? "Itinéraire : Flightradar24"
+        : route?.observed ? "Itinéraire : adsbdb, décollage confirmé" : "Itinéraire : adsbdb (horaires)";
+      text("r-src", src);
       this.renderFullTrackButton();
       this.renderPhoto(d, ac?.registration ?? t.reg ?? "", ac?.type_name ?? t.type ?? "Avion");
       this.renderSpark(d, t);

@@ -15,6 +15,8 @@ import type { LayerPrefs } from "./lib/prefs";
 import { MetarFeed } from "./map/metar";
 import { PlaneLayer } from "./map/planes";
 import { Radar } from "./map/radar";
+import { installImagery } from "./map/imagery";
+import { restyle } from "./map/restyle";
 import { type Theme, buildStyle } from "./map/style";
 import { nightPolygons } from "./map/sun";
 import { WindLayer } from "./map/winds";
@@ -46,6 +48,7 @@ let pendingFly: string | null = null;
 let pendingAirportFly = false;
 let prefs: LayerPrefs = loadPrefs();
 let satellite = prefs.satellite;
+document.body.classList.toggle("sat", satellite);
 
 // ---------- layout: the dock width and the sheet peek come from lib/layout (one source of truth, mirrored by CSS breakpoints) ----------
 function applyLayout() {
@@ -73,6 +76,7 @@ function bootStep(gate: keyof typeof bootGates) {
 setTimeout(() => { bootGates.map = bootGates.data = true; bootStep("map"); }, 7000); // never stay behind the splash
 
 // ---------- map ----------
+installImagery();
 const map = new maplibregl.Map({
   container: "map",
   style: buildStyle(currentTheme(), { satellite }),
@@ -220,35 +224,54 @@ function flyToPoint(lat: number, lon: number, zoom: number) {
 }
 
 // ---------- follow mode: gentle pitch, bearing along the track, any drag lets go ----------
-let fBearing = 0, lastFollowT = 0, followEaseUntil = 0, needLevel = false;
+// Driven from the plane layer's per-frame callback: during the entry the camera blends from where it was toward the
+// plane's *live* position (so it never lands behind it and snaps), then it stays locked on exactly the position the
+// marker is drawn at in that same frame.
+const FOLLOW_ENTRY_MS = 1300;
+let fBearing = 0, lastFollowT = 0, needLevel = false;
+let entry: { t0: number; lat: number; lon: number; zoom: number; pitch: number; bearing: number; zoomTo: number } | null = null;
 
 function setFollow(on: boolean) {
   const was = follow;
-  follow = on && !!selected;
+  follow = on && !!selected && store.has(selected);
   panel.setFollow(follow);
   winds.hold(follow);
-  if (follow && selected) {
-    const t = store.get(selected);
-    if (!t) { follow = false; panel.setFollow(false); winds.hold(false); return; }
-    const [lat, lon] = renderPos(t, serverNow());
+  if (follow) {
+    map.stop();
+    const c = map.getCenter();
     fBearing = map.getBearing();
-    followEaseUntil = performance.now() + 1500;
     lastFollowT = performance.now();
-    map.easeTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 7), pitch: FOLLOW_PITCH, bearing: t.trk ?? fBearing, padding: padding(), duration: 1400, easing: easeOut, essential: false });
-  } else if (was) levelCamera();
+    entry = reducedMotion() ? null : { t0: lastFollowT, lat: c.lat, lon: c.lng, zoom: map.getZoom(), pitch: map.getPitch(), bearing: fBearing, zoomTo: Math.max(map.getZoom(), 7) };
+    if (!entry) map.jumpTo({ zoom: Math.max(map.getZoom(), 7), pitch: FOLLOW_PITCH });
+    map.setPadding(padding());
+  } else if (was) { entry = null; levelCamera(); }
 }
 function levelCamera() { map.easeTo({ pitch: 0, bearing: 0, padding: padding(), duration: 900, easing: easeOut, essential: false }); }
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 layer.onSelectedMove = (lat, lon, trk) => {
-  if (!follow || performance.now() < followEaseUntil) return;
+  if (!follow) return;
   const now = performance.now();
   fBearing = lerpBearing(fBearing, trk ?? fBearing, smoothing(now - lastFollowT, 1400));
   lastFollowT = now;
+  if (entry) {
+    const k = easeOut(Math.min(1, (now - entry.t0) / FOLLOW_ENTRY_MS));
+    let dLon = lon - entry.lon;
+    if (dLon > 180) dLon -= 360; else if (dLon < -180) dLon += 360;
+    map.jumpTo({
+      center: [entry.lon + dLon * k, entry.lat + (lat - entry.lat) * k],
+      zoom: entry.zoom + (entry.zoomTo - entry.zoom) * k,
+      pitch: entry.pitch + (FOLLOW_PITCH - entry.pitch) * k,
+      bearing: lerpBearing(entry.bearing, fBearing, k),
+    });
+    if (k >= 1) entry = null;
+    return;
+  }
   map.jumpTo({ center: [lon, lat], bearing: fBearing });
 };
 map.on("movestart", (e) => {
   const type = (e as { originalEvent?: Event }).originalEvent?.type;
-  if (follow && endsFollow(type)) { follow = false; needLevel = true; panel.setFollow(false); winds.hold(false); }
+  if (follow && endsFollow(type)) { follow = false; entry = null; needLevel = true; panel.setFollow(false); winds.hold(false); }
 });
 map.on("moveend", () => { if (needLevel && !follow) { needLevel = false; levelCamera(); } });
 
@@ -303,7 +326,7 @@ function select(hex: string | null, push: boolean) {
   const wasFollowing = follow;
   if (hex && airportCode) closeAirport(false, false);
   selected = hex;
-  follow = false; winds.hold(false);
+  follow = false; entry = null; winds.hold(false);
   fullTrackShown = false;
   layer.setSelected(hex);
   if (hex) {
@@ -511,7 +534,18 @@ initSearch({
 // ---------- toolbar, layers menu ----------
 $("zoom-in").addEventListener("click", () => map.zoomIn({ duration: 300 }));
 $("zoom-out").addEventListener("click", () => map.zoomOut({ duration: 300 }));
-initTheme((t: Theme) => { map.setStyle(buildStyle(t, { satellite }), { diff: false }); radar.setTheme(t); paintWindTone(); });
+/** Theme or satellite changed: patch the live style in place (tiles, planes and radar stay), full reload only as a fallback. */
+let styled = { theme: currentTheme(), satellite };
+function applyBasemap(theme: Theme, sat: boolean) {
+  const prev = styled;
+  styled = { theme, satellite: sat };
+  const ok = map.isStyleLoaded() !== false && restyle(map, buildStyle(prev.theme, { satellite: prev.satellite }).layers, buildStyle(theme, { satellite: sat }).layers);
+  if (!ok) { map.setStyle(buildStyle(theme, { satellite: sat }), { diff: false }); return; }
+  if (prev.theme !== theme) { layer.retheme(prev.theme, theme); radar.setTheme(theme); updateNight(); paintLegend(); }
+  paintWindTone();
+  document.body.classList.toggle("sat", sat);
+}
+initTheme((t: Theme) => applyBasemap(t, satellite));
 
 const rpill = initRadarPill({ onSeek: (i) => radar.seek(i), onToggle: () => radar.toggle() });
 radar.onChange = (s) => {
@@ -535,9 +569,7 @@ function applyPref(key: keyof LayerPrefs) {
     case "est": layer.setShowEstimated(prefs.est); break;
     case "satellite":
       satellite = prefs.satellite;
-      // The style is rebuilt (cheap: vector tiles come from the HTTP cache) so every layer's colours match the imagery.
-      map.setStyle(buildStyle(currentTheme(), { satellite }), { diff: false });
-      paintWindTone();
+      applyBasemap(currentTheme(), satellite);
       break;
   }
 }

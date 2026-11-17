@@ -6,8 +6,11 @@ export interface Aircraft { registration: string | null; type: string | null; ty
 export interface Route {
   callsign: string | null; airline: string | null; airline_iata?: string | null; airline_icao?: string | null;
   origin: Airport | null; destination: Airport | null; plausible: boolean;
-  /** Where the route comes from: FR24 (confirmed live flight) or adsbdb (often stale). */
-  source?: "adsbdb" | "fr24" | null; fr24_id?: string;
+  /** Where the route comes from: FR24 (live flight), adsbdb (schedule database), or "observed" (we saw the take-off;
+   *  destination unknown). The server drops database routes that do not fit the plane's position. */
+  source?: "adsbdb" | "fr24" | "observed" | null; fr24_id?: string;
+  /** The take-off was seen by Stratus (origin confirmed). */
+  observed?: boolean;
 }
 export interface Photo { thumb: string; large: string; photographer: string; link: string }
 export type TrailPoint = [lat: number, lon: number, alt: number | null, ts: number];

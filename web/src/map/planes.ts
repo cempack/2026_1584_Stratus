@@ -7,9 +7,11 @@ import { type Track, greatCircle, renderPos, shapeOf, STALE_S, unwrap, type Shap
 import { type Compiled, NO_FILTERS, compileFilters } from "../lib/filters";
 import { CATEGORY_COLOR, categoryOf } from "../lib/airport";
 import { serverNow, type Airport, type Metar, type Runway, type TrailPoint } from "../api";
-import { SHAPES, makeIcon } from "./icons";
+import { PATHS, SHAPES, makeIcon } from "./icons";
 import { EMPTY, SOURCE_IDS, buildOverlay } from "./layers";
+import { restyle } from "./restyle";
 import { ACCENT, type Theme } from "./style";
+import { lerpBearing, smoothing } from "../lib/follow";
 
 type Pt = [number, number];
 interface Props { hex: string; icon: string; ring: string; trk: number; alt: number; op: number; sz: number; cs: string }
@@ -28,9 +30,30 @@ function pulseEl(cls: string) {
   return el;
 }
 
+/** Selected plane: pulse + ring (screen-aligned) and the silhouette (rotated with the map). */
+function selEl() {
+  const el = document.createElement("div");
+  el.className = "sel-mk";
+  el.innerHTML = '<div class="pulse sel"><i></i><i></i></div><span class="sel-ring"></span>'
+    + '<svg class="sel-plane" viewBox="0 0 64 64" aria-hidden="true"><path/></svg>';
+  return el;
+}
+
+/** CSS px of a plane icon at zoom `z` (same ramp as the symbol layers: 60 px image at pixelRatio 2 → 30 px). */
+function iconPx(z: number, k: number) {
+  const stops: [number, number][] = [[2, 0.36], [5, 0.5], [8, 0.66], [11, 0.85], [15, 1.05]];
+  let f = stops[0][1];
+  for (let i = 1; i < stops.length; i++) {
+    const [z0, f0] = stops[i - 1], [z1, f1] = stops[i];
+    if (z <= z0) break;
+    f = z >= z1 ? f1 : f0 + ((f1 - f0) * (z - z0)) / (z1 - z0);
+  }
+  return 30 * 48 / 60 * f * k; // the silhouette spans 48 of the 60 px image
+}
+
 export class PlaneLayer {
   selected: string | null = null;
-  /** Called at ~30 Hz with the animated position of the selected plane. */
+  /** Called every frame with the animated position of the selected plane (before it is drawn). */
   onSelectedMove: ((lat: number, lon: number, trk: number | null) => void) | null = null;
   private cache = new Map<string, F>();
   private rendered: F[] = [];
@@ -40,7 +63,6 @@ export class PlaneLayer {
   private lastOverlay = 0;
   private inflight = 0;
   private sel: F | null = null;
-  private selData: object = EMPTY;
   private trailPts: { c: Pt; alt: number }[] = [];
   private trailData: object = EMPTY;
   private routeData: object = EMPTY;
@@ -51,6 +73,9 @@ export class PlaneLayer {
   private atcVisible = false;
   private atcLiveData: object = EMPTY;
   private selMarker: maplibregl.Marker | null = null;
+  private selShape: Shape | null = null;
+  private selRot: number | null = null;
+  private selRotT = 0;
   private atcMarker: maplibregl.Marker | null = null;
   private filter: Compiled = compileFilters(NO_FILTERS);
   private showEst = true;
@@ -79,25 +104,29 @@ export class PlaneLayer {
     for (const [id, spec] of Object.entries(sources)) if (!m.getSource(id)) m.addSource(id, spec);
     for (const l of layers) if (!m.getLayer(l.id)) m.addLayer(l);
     const cache: Record<string, object> = {
-      sel: this.selData, trail: this.trailData, route: this.routeData, points: this.pointsData, atc: this.atcData, "atc-live": this.atcLiveData,
+      trail: this.trailData, route: this.routeData, points: this.pointsData, atc: this.atcData, "atc-live": this.atcLiveData,
       alerts: this.alertsData, fulltrack: this.fullTrackData, apt: this.aptData, metar: this.metarData,
     };
     for (const id of SOURCE_IDS) if (id in cache) this.push(id, cache[id]);
     this.dirty = true;
   }
 
-  private push(id: string, data: object) { (this.map.getSource(id) as GeoJSONSource | undefined)?.setData(data as Parameters<GeoJSONSource["setData"]>[0]); }
+  /** Theme change without a style reload. */
+  retheme(from: Theme, to: Theme) {
+    restyle(this.map, buildOverlay(from).layers, buildOverlay(to).layers);
+    this.fadeBase.clear(); // remembered opacities belong to the old theme's paint
+  }
+
+    private push(id: string, data: object) { (this.map.getSource(id) as GeoJSONSource | undefined)?.setData(data as Parameters<GeoJSONSource["setData"]>[0]); }
 
   setSelected(hex: string | null) {
     this.selected = hex;
     this.head = null;
     this.sel = null;
-    this.selData = EMPTY;
-    this.push("sel", EMPTY);
     this.dirty = true;
     this.setDetail([], null, null, false);
     this.setFullTrack(null);
-    if (!hex) { this.selMarker?.remove(); this.selMarker = null; }
+    this.selMarker?.remove(); this.selMarker = null; this.selShape = null; this.selRot = null;
   }
 
   setAtc(points: { icao: string; lat: number; lon: number }[]) {
@@ -213,7 +242,7 @@ export class PlaneLayer {
 
   private head: { lat: number; lon: number; alt: number; est: boolean } | null = null;
   private refreshOverlay(force = false, t = performance.now()) {
-    if (!force && t - this.lastOverlay < (this.moving() ? 1000 : 500)) return;
+    if (!force && t - this.lastOverlay < (this.moving() ? 400 : 200)) return;
     this.lastOverlay = t;
     const feats: object[] = [];
     const pts = this.trailPts;
@@ -298,32 +327,49 @@ export class PlaneLayer {
   frame(t: number) {
     const now = serverNow();
     const moving = this.moving();
-    if (this.selected && t - this.lastSel >= (moving ? 66 : 33)) {
-      this.lastSel = t;
-      const tr = this.store.get(this.selected);
-      if (tr) {
-        const [lat, lon] = renderPos(tr, now);
-        const f = (this.sel ??= { type: "Feature", geometry: { type: "Point", coordinates: [0, 0] }, properties: { hex: tr.hex, icon: "", ring: "", trk: 0, alt: 0, op: 1, sz: 1, cs: "" } });
-        const shape = this.shapeFor(tr.cat, tr.type);
-        f.geometry.coordinates = [lon, lat];
-        Object.assign(f.properties, { icon: `plane-${shape}`, sz: SIZE[shape], trk: tr.trk ?? 0, alt: tr.gnd ? 0 : tr.alt ?? 0, op: tr.est ? 0.6 : 1 });
-        this.selData = { type: "FeatureCollection", features: [f] };
-        this.push("sel", this.selData);
-        this.head = { lat, lon, alt: tr.gnd ? 0 : tr.alt ?? 0, est: !!tr.est };
-        this.refreshOverlay(false, t);
-        if (!reducedMotion()) {
-          if (!this.selMarker) this.selMarker = new maplibregl.Marker({ element: pulseEl("sel"), pitchAlignment: "viewport", rotationAlignment: "viewport" }).setLngLat([lon, lat]).addTo(this.map);
-          else this.selMarker.setLngLat([lon, lat]);
-        }
-        this.onSelectedMove?.(lat, lon, tr.trk);
-      }
-    }
+    if (this.selected) this.frameSelected(t, now);
     const z = this.map.getZoom();
     if (this.inflight && t - this.inflight > 2000) this.inflight = 0;
     const interval = moving ? Math.max(450, this.mainInterval(z)) : this.mainInterval(z);
     if (this.inflight || (!this.dirty && t - this.lastMain < interval) || t - this.lastMain < (moving ? 450 : 90)) return;
     this.lastMain = t; this.dirty = false;
     this.updateMain(now, z);
+  }
+
+  /**
+   * The selected plane, every frame. Order matters: the camera (follow mode) moves first, then the marker is placed
+   * against that same camera, so both land in the same paint and the plane cannot drift or jerk on screen.
+   */
+  private frameSelected(t: number, now: number) {
+    const tr = this.store.get(this.selected!);
+    if (!tr) return;
+    const [lat, lon] = renderPos(tr, now);
+    const shape = this.shapeFor(tr.cat, tr.type);
+    const f = (this.sel ??= { type: "Feature", geometry: { type: "Point", coordinates: [0, 0] }, properties: { hex: tr.hex, icon: "", ring: "", trk: 0, alt: 0, op: 1, sz: 1, cs: "" } });
+    f.geometry.coordinates = [lon, lat];
+    f.properties.op = tr.est ? 0.6 : 1;
+    this.onSelectedMove?.(lat, lon, tr.trk);
+    if (!this.selMarker) {
+      this.selMarker = new maplibregl.Marker({ element: selEl(), rotationAlignment: "map", pitchAlignment: "map" }).setLngLat([lon, lat]).addTo(this.map);
+    }
+    const el = this.selMarker.getElement();
+    if (shape !== this.selShape) {
+      this.selShape = shape;
+      el.querySelector("path")!.setAttribute("d", PATHS[shape]);
+      el.style.setProperty("--sz", String(SIZE[shape]));
+    }
+    el.style.setProperty("--px", `${iconPx(this.map.getZoom(), 1.35 * SIZE[shape]).toFixed(1)}px`);
+    el.classList.toggle("est", !!tr.est);
+    // heading changes arrive in steps (one per fix): turn the icon smoothly instead of snapping
+    const trk = tr.trk ?? this.selRot ?? 0;
+    this.selRot = this.selRot == null ? trk : lerpBearing(this.selRot, trk, smoothing(t - this.selRotT, 300));
+    this.selRotT = t;
+    this.selMarker.setLngLat([lon, lat]).setRotation(this.selRot);
+    if (t - this.lastSel >= 100) {
+      this.lastSel = t;
+      this.head = { lat, lon, alt: tr.gnd ? 0 : tr.alt ?? 0, est: !!tr.est };
+      this.refreshOverlay(false, t);
+    }
   }
 
   private updateMain(now: number, z: number) {

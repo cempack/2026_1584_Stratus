@@ -35,7 +35,7 @@ export function decodeRows(s: Snapshot): Plane[] {
 }
 
 export const MAX_DR_S = 90;
-export const EASE_S = 1;
+export const EASE_S = 2.5; // long enough that a correction reads as a slight speed change, never a jump back
 export const STALE_S = 300;
 
 export const R_NM = 3440.065;

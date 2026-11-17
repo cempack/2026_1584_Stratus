@@ -71,7 +71,7 @@ export function buildStyle(theme: Theme, opts: BasemapOptions = {}): StyleSpecif
   const layers: LayerSpecification[] = [
     { id: "bg", type: "background", paint: { "background-color": ["interpolate", ["linear"], ["zoom"], 4.6, c.water, 5.4, c.land] } },
     { id: "land-fb", type: "fill", source: "land", paint: { "fill-color": c.land, "fill-opacity": ["interpolate", ["linear"], ["zoom"], 4.6, 1, 5.4, 0], "fill-antialias": true } },
-    { id: "sat", type: "raster", source: "sat", layout: vis(!sat), paint: { "raster-fade-duration": 250, "raster-saturation": -0.08, "raster-brightness-max": 0.92 } },
+    { id: "sat", type: "raster", source: "sat", layout: vis(!sat), paint: { "raster-fade-duration": 120, "raster-saturation": -0.08, "raster-brightness-max": 0.92 } },
     { id: "wood", type: "fill", ...src, "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "forest"]]], paint: { "fill-color": c.wood, "fill-opacity": 0.6 } },
     { id: "ice", type: "fill", ...src, "source-layer": "landcover", filter: ["in", ["get", "subclass"], ["literal", ["glacier", "ice_shelf"]]], paint: { "fill-color": c.bg } },
     { id: "park", type: "fill", ...src, "source-layer": "park", minzoom: 8, paint: { "fill-color": c.park } },
@@ -121,7 +121,8 @@ export function buildStyle(theme: Theme, opts: BasemapOptions = {}): StyleSpecif
       land: { type: "geojson", data: land110 as unknown as GeoJSONSourceSpecification["data"], tolerance: 0.4, maxzoom: 4, buffer: 64 },
       airports: { type: "geojson", data: AIRPORTS_GEOJSON as unknown as GeoJSONSourceSpecification["data"], maxzoom: 8 },
       night: { type: "geojson", data: EMPTY_FC as unknown as GeoJSONSourceSpecification["data"] },
-      sat: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 18,
+      // esri:// is a protocol registered in imagery.ts (HTTP/2 host with a fallback)
+      sat: { type: "raster", tiles: ["esri://{z}/{y}/{x}"], tileSize: 256, maxzoom: 18,
         attribution: "Imagery © Esri, Maxar, Earthstar Geographics" },
     },
     layers,

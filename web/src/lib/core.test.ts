@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  type Plane, type Track, decodeRows, destination, distanceNm, fmtAlt, fmtSpeed, fmtVr, fmtTrack, formatUrl, greatCircle,
+  EASE_S, type Plane, type Track, decodeRows, destination, distanceNm, fmtAlt, fmtSpeed, fmtVr, fmtTrack, formatUrl, greatCircle,
   mergePlane, parseUrl, reckon, renderPos, search, shapeOf, oklchToHex,
 } from "./core";
 
@@ -37,7 +37,7 @@ describe("merge by ts", () => {
     const t = store.get(base.hex)!;
     expect(t.ey).not.toBe(0);
     expect(renderPos(t, 1005)[0]).toBeCloseTo(48, 4); // starts where it was drawn
-    expect(renderPos(t, 1006.5)[0]).toBeCloseTo(48.01, 4); // eased in after 1 s
+    expect(renderPos(t, 1005 + EASE_S + 0.1)[0]).toBeCloseTo(48.01, 4); // fully eased after EASE_S
   });
 });
 

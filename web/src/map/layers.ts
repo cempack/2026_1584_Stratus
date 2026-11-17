@@ -13,7 +13,7 @@ export const PAL = {
   light: { halo: "#ffffff", label: "#4b5159", labelHalo: "#f2f3f5", route: "#D4900F", dot: "#ffffff", casing: "#ffffff", alert: "#d3432f" },
 };
 
-export const SOURCE_IDS = ["planes", "planes-est", "sel", "trail", "route", "points", "atc", "atc-live", "alerts", "metar", "apt", "fulltrack"] as const;
+export const SOURCE_IDS = ["planes", "planes-est", "trail", "route", "points", "atc", "atc-live", "alerts", "metar", "apt", "fulltrack"] as const;
 
 export interface Overlay {
   sources: Record<string, GeoJSONSourceSpecification>;
@@ -85,9 +85,7 @@ export function buildOverlay(theme: Theme, opts: { atcVisible?: boolean; metarVi
     { id: "atc-names", type: "symbol", source: "atc", minzoom: 4, layout: { "text-field": ["get", "icao"], "text-font": FONT, "text-size": 11, "text-offset": [0, 0.9], "text-anchor": "top", ...vis(opts.atcVisible) },
       paint: { "text-color": c.label, "text-halo-color": c.labelHalo, "text-halo-width": 1.2 } },
     { id: "atc-live", type: "circle", source: "atc-live", paint: { "circle-radius": 5.5, "circle-color": accent, "circle-stroke-color": c.dot, "circle-stroke-width": 2 } },
-    { id: "sel-ring", type: "circle", source: "sel", paint: { "circle-radius": 19, "circle-color": accent, "circle-opacity": 0.1, "circle-stroke-color": accent, "circle-stroke-width": 1.4, "circle-stroke-opacity": 0.9, "circle-pitch-alignment": "viewport" } },
-    { id: "sel-icon", type: "symbol", source: "sel", layout: iconLayout(1.35),
-      paint: { "icon-color": altColor, "icon-opacity": ["get", "op"], "icon-halo-color": accent, "icon-halo-width": 1.6 } },
+    // the selected plane is a DOM marker (planes.ts): it moves in the same frame as the camera in follow mode
   ];
   return { sources, layers };
 }

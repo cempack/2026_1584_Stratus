@@ -10,9 +10,18 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const get = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const set = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
-// v2: weather back to off by default; the new key drops prefs saved under the old radar-on default
-const PREFS_KEY = "stratus.layers.v2", FILTERS_KEY = "stratus.filters";
-export const loadPrefs = () => parsePrefs(get(PREFS_KEY), { sat: get("stratus.sat"), radar: get("stratus.radar") });
+// v2: weather back to off by default. v3: satellite on by default; v2 prefs are kept except their satellite choice.
+const PREFS_KEY = "stratus.layers.v3", FILTERS_KEY = "stratus.filters";
+function storedPrefs(): string | null {
+  const v3 = get(PREFS_KEY);
+  if (v3 != null) return v3;
+  try {
+    const v2 = JSON.parse(get("stratus.layers.v2") ?? "null") as Record<string, unknown> | null;
+    if (v2 && typeof v2 === "object") { delete v2.satellite; return JSON.stringify(v2); }
+  } catch { /* garbage: defaults */ }
+  return null;
+}
+export const loadPrefs = () => parsePrefs(storedPrefs(), { radar: get("stratus.radar") });
 export const loadFilters = () => parseFilters(get(FILTERS_KEY));
 
 export interface LayersHooks {

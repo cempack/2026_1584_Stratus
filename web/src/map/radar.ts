@@ -194,7 +194,15 @@ export class Radar {
     this.target = this.idx;
   }
 
-  setTheme(theme: Theme) { this.theme = theme; }
+  /** New theme without a style reload: shown frames take the new opacity at once. */
+  setTheme(theme: Theme) {
+    this.theme = theme;
+    const m = this.map;
+    for (const f of this.frames) {
+      const id = radarId(f);
+      if (m.getLayer(id) && (m.getPaintProperty(id, "raster-opacity") as number) > 0) m.setPaintProperty(id, "raster-opacity", radarOpacity(theme));
+    }
+  }
 
   private remove() {
     const m = this.map;

@@ -15,13 +15,13 @@
 
   /* light */
   --space: radial-gradient(120% 100% at 50% 34%, #f8fafd 0%, #e9eef5 56%, #d9e1ec 100%);
-  --glass: rgba(255, 255, 255, 0.74);
+  --glass: rgba(255, 255, 255, 0.86);
   --glass-solid: #ffffff;
   --surface-2: rgba(15, 23, 38, 0.045);
   --surface-3: rgba(15, 23, 38, 0.08);
   --ink: #0f1623;
-  --ink-2: #454f62;
-  --ink-3: #77829a;
+  --ink-2: #3b4457;
+  --ink-3: #5f6a7f;
   --line: rgba(15, 23, 38, 0.08);
   --line-strong: rgba(15, 23, 38, 0.16);
   --hi: rgba(255, 255, 255, 0.95);
@@ -38,13 +38,13 @@
 }
 :root[data-theme="dark"] {
   --space: radial-gradient(120% 100% at 50% 38%, #111a2b 0%, #080c15 56%, #03050a 100%);
-  --glass: rgba(16, 20, 29, 0.68);
+  --glass: rgba(16, 20, 29, 0.8);
   --glass-solid: #121721;
   --surface-2: rgba(255, 255, 255, 0.055);
   --surface-3: rgba(255, 255, 255, 0.1);
   --ink: #eef1f7;
-  --ink-2: #aeb7c7;
-  --ink-3: #7b8599;
+  --ink-2: #b6bfce;
+  --ink-3: #8f99ac;
   --line: rgba(255, 255, 255, 0.085);
   --line-strong: rgba(255, 255, 255, 0.17);
   --hi: rgba(255, 255, 255, 0.075);
@@ -110,6 +110,10 @@ body.booting .ui { opacity: 0; transform: translateY(8px); pointer-events: none;
   box-shadow: inset 0 1px 0 var(--hi), var(--shadow-sm);
 }
 @supports not (backdrop-filter: blur(1px)) { .glass { background: var(--glass-solid); } }
+/* over satellite imagery the blurred background is busy and saturated: a denser, calmer glass keeps text legible */
+body.sat { --glass: rgba(255, 255, 255, 0.93); }
+:root[data-theme="dark"] body.sat { --glass: rgba(14, 18, 26, 0.88); }
+body.sat .glass { -webkit-backdrop-filter: blur(28px) saturate(1.1); backdrop-filter: blur(28px) saturate(1.1); }
 
 /* ---------- controls ---------- */
 .btn {
@@ -166,7 +170,8 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 
 /* top left: brand + search */
 .top-left { position: relative; display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; max-width: 500px; }
-.brand { display: flex; align-items: center; gap: 9px; height: 44px; flex: none; font-weight: 650; font-size: 15px; letter-spacing: -0.01em; user-select: none; text-shadow: 0 0 12px var(--glass-solid); }
+.brand { display: flex; align-items: center; gap: 9px; height: 44px; flex: none; font-weight: 650; font-size: 15px; letter-spacing: -0.01em; user-select: none;
+  text-shadow: 0 0 2px var(--glass-solid), 0 0 6px var(--glass-solid), 0 0 14px var(--glass-solid); }
 .brand-mark { width: 28px; height: 28px; border-radius: 8px; display: block; box-shadow: var(--shadow-sm); }
 .search { position: relative; z-index: 6; flex: 1; min-width: 0; display: flex; align-items: center; height: 44px; border-radius: 15px; transition: border-color 160ms, box-shadow 160ms; }
 .search:focus-within { border-color: color-mix(in oklab, var(--accent) 55%, var(--line)); box-shadow: inset 0 1px 0 var(--hi), var(--shadow-sm), 0 0 0 3px var(--accent-soft); }
@@ -418,6 +423,8 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .hero > a, .hero img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .hero img { object-fit: cover; opacity: 0; transform: scale(1.04); transition: opacity 600ms var(--ease), transform 1100ms var(--ease); }
 .hero[data-state="ready"] img { opacity: 1; transform: none; }
+.hero img { transition: opacity 600ms var(--ease), transform 1100ms var(--ease), filter 500ms var(--ease); }
+.hero[data-state="ready"] img[data-stage="thumb"] { filter: blur(10px) saturate(1.1); transform: scale(1.08); }
 .hero-skel { position: absolute; inset: 0; background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface-3) 50%, var(--surface-2) 70%); background-size: 220% 100%; animation: shimmer 1.5s linear infinite; transition: opacity 400ms; }
 .hero[data-state="ready"] .hero-skel, .hero[data-state="none"] .hero-skel { opacity: 0; animation: none; }
 .hero-fallback { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 4px; padding: 16px; text-align: center; opacity: 0; transition: opacity 400ms var(--ease);
@@ -458,6 +465,8 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .end.right { text-align: right; }
 .end b { font-size: 30px; line-height: 32px; font-weight: 700; letter-spacing: -0.02em; }
 .end span { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.route.partial .track, .route.partial .legs, .route.partial .eta { display: none; }
+.route.partial #r-d { color: var(--ink-3); }
 .track { position: relative; height: 4px; margin: 14px 10px 14px; border-radius: 2px; background: var(--surface-3); }
 .track::before, .track::after { content: ""; position: absolute; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--glass-solid); box-shadow: 0 0 0 1.5px var(--ink-3); }
 .track::before { left: -10px; } .track::after { right: -10px; }
@@ -545,6 +554,13 @@ dt { font-size: 12px; color: var(--ink-3); }
 .toast { position: fixed; z-index: 30; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100vw - 2 * var(--gut)); padding: 10px 18px; border-radius: 14px; font-weight: 500; animation: toast-in 260ms var(--ease) both; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
 .pulse { width: 0; height: 0; pointer-events: none; }
+.sel-mk { width: 0; height: 0; pointer-events: none; }
+.sel-mk .pulse { position: absolute; }
+.sel-ring { position: absolute; left: -19px; top: -19px; width: 38px; height: 38px; border-radius: 50%; border: 1.4px solid var(--accent); background: color-mix(in oklab, var(--accent) 10%, transparent); }
+.sel-plane { position: absolute; width: var(--px, 24px); height: var(--px, 24px); left: calc(var(--px, 24px) / -2); top: calc(var(--px, 24px) / -2); overflow: visible;
+  fill: var(--accent); stroke: var(--sel-halo, #0b0e14); stroke-width: 3.2; stroke-linejoin: round; paint-order: stroke; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45)); }
+.sel-mk.est .sel-plane { fill-opacity: 0.55; }
+:root[data-theme="light"] .sel-mk { --sel-halo: #ffffff; }
 .pulse i { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--accent); opacity: 0; animation: pulse 2.6s var(--ease) infinite; }
 .pulse i:nth-child(2) { animation-delay: 1.3s; }
 .pulse.atc i { left: -16px; top: -16px; width: 32px; height: 32px; }
