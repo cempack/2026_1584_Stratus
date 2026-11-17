@@ -1,0 +1,11 @@
+{
+  "icao": "SCEL",
+  "name": "Comodoro Arturo Merino Benítez International Airport",
+  "city": "Santiago",
+  "country": "CL",
+  "lat": -33.39025,
+  "lng": -70.7947,
+  "order": [
+    "scel.pls"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "icao": "EIDW",
+  "name": "Dublin Airport",
+  "city": "Dublin",
+  "country": "IE",
+  "lat": 53.42871,
+  "lng": -6.26212,
+  "order": [
+    "eidw8.pls",
+    "eidw82.pls"
+  ]
+}

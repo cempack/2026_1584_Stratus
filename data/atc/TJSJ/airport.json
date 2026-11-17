@@ -1,0 +1,11 @@
+{
+  "icao": "TJSJ",
+  "name": "Luis Munoz Marin International Airport",
+  "city": "San Juan",
+  "country": "PR",
+  "lat": 18.4394,
+  "lng": -66.0018,
+  "order": [
+    "tjsj1_gnd.pls"
+  ]
+}

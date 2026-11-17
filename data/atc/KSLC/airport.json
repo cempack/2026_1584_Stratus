@@ -1,0 +1,13 @@
+{
+  "icao": "KSLC",
+  "name": "Salt Lake City International Airport",
+  "city": "Salt Lake City",
+  "country": "US",
+  "lat": 40.78886,
+  "lng": -111.97987,
+  "order": [
+    "kslc_twr16r_132650.pls",
+    "kslc_app_fin_125700.pls",
+    "kslc_gnd_w_123775.pls"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "icao": "CYVR",
+  "name": "Vancouver International Airport",
+  "city": "Vancouver",
+  "country": "CA",
+  "lat": 49.1939,
+  "lng": -123.184,
+  "order": [
+    "cyvr1_twr.pls",
+    "cyvr1_gnd_twr.pls",
+    "cyvr1_app.pls",
+    "cyvr2.pls",
+    "cyvr1_gnd.pls"
+  ]
+}

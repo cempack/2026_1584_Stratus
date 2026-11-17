@@ -1,0 +1,15 @@
+{
+  "icao": "KMDW",
+  "name": "Chicago Midway International Airport",
+  "city": "Chicago",
+  "country": "US",
+  "lat": 41.786,
+  "lng": -87.7524,
+  "order": [
+    "kmdw_1.pls",
+    "kmdw1_twr.pls",
+    "kmdw1_app_128200.pls",
+    "kmdw1_app_119350.pls",
+    "kmdw_3.pls"
+  ]
+}

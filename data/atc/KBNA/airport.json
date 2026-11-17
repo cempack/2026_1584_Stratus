@@ -1,0 +1,15 @@
+{
+  "icao": "KBNA",
+  "name": "Nashville International Airport",
+  "city": "Nashville",
+  "country": "US",
+  "lat": 36.1245,
+  "lng": -86.6782,
+  "order": [
+    "kbna_twr.pls",
+    "kbna_gnd_twr.pls",
+    "kbna_app_west.pls",
+    "kbna_app.pls",
+    "kbna_gnd.pls"
+  ]
+}

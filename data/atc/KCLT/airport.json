@@ -1,0 +1,14 @@
+{
+  "icao": "KCLT",
+  "name": "Charlotte Douglas International Airport",
+  "city": "Charlotte",
+  "country": "US",
+  "lat": 35.214,
+  "lng": -80.9431,
+  "order": [
+    "kclt7_twr_118100.pls",
+    "kclt7_dep_120500.pls",
+    "kclt4_arr.pls",
+    "kclt7_dep_119000.pls"
+  ]
+}

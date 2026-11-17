@@ -1,0 +1,15 @@
+{
+  "icao": "LHBP",
+  "name": "Budapest Liszt Ferenc International Airport",
+  "city": "Budapest",
+  "country": "HU",
+  "lat": 47.43018,
+  "lng": 19.26239,
+  "order": [
+    "lhbp_twr_118715.pls",
+    "lhbp_twr_119980.pls",
+    "lhbp_app_122980.pls",
+    "lhbp_app_123860.pls",
+    "lhbp_gnd_121905.pls"
+  ]
+}

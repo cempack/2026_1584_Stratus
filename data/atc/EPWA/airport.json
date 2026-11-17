@@ -1,0 +1,14 @@
+{
+  "icao": "EPWA",
+  "name": "Warsaw Chopin Airport",
+  "city": "Warsaw",
+  "country": "PL",
+  "lat": 52.1657,
+  "lng": 20.9671,
+  "order": [
+    "epwa_twr2.pls",
+    "epwa_app.pls",
+    "epwa_app2.pls",
+    "epwa_gnd.pls"
+  ]
+}

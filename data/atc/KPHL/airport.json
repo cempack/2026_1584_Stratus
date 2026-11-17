@@ -1,0 +1,15 @@
+{
+  "icao": "KPHL",
+  "name": "Philadelphia International Airport",
+  "city": "Philadelphia",
+  "country": "US",
+  "lat": 39.8719,
+  "lng": -75.2411,
+  "order": [
+    "kphl_twr_east.pls",
+    "kphl_twr_both.pls",
+    "kphl_final.pls",
+    "kphl_app_119750.pls",
+    "kphl_dep.pls"
+  ]
+}

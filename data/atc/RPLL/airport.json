@@ -1,0 +1,15 @@
+{
+  "icao": "RPLL",
+  "name": "Ninoy Aquino International Airport",
+  "city": "Manila",
+  "country": "PH",
+  "lat": 14.5086,
+  "lng": 121.02,
+  "order": [
+    "rpll.pls",
+    "rpll_app_124400.pls",
+    "rpll_app_119900.pls",
+    "rpll_gnd.pls",
+    "rpll_control_120500.pls"
+  ]
+}

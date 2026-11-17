@@ -1,0 +1,15 @@
+{
+  "icao": "KIAD",
+  "name": "Washington Dulles International Airport",
+  "city": "Washington",
+  "country": "US",
+  "lat": 38.9445,
+  "lng": -77.4558,
+  "order": [
+    "kiad1_twr_1l19r_134425.pls",
+    "kiad1_twr_1c19c_120250.pls",
+    "kmrb1_kiad_n_arr.pls",
+    "kiad1_app_final_west_134200.pls",
+    "kiad2_dep_s.pls"
+  ]
+}

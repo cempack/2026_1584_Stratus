@@ -1,0 +1,15 @@
+{
+  "icao": "RJAA",
+  "name": "Narita International Airport",
+  "city": "Tokyo",
+  "country": "JP",
+  "lat": 35.76858,
+  "lng": 140.38871,
+  "order": [
+    "rjaa_twr.pls",
+    "rjaa_twr1.pls",
+    "rjaa_dep1.pls",
+    "rjaa_dep.pls",
+    "rjaa_gnd2.pls"
+  ]
+}

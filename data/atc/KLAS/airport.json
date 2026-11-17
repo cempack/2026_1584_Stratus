@@ -1,0 +1,15 @@
+{
+  "icao": "KLAS",
+  "name": "Harry Reid International Airport",
+  "city": "Las Vegas",
+  "country": "US",
+  "lat": 36.08336,
+  "lng": -115.15182,
+  "order": [
+    "klas4_twr.pls",
+    "klas4_twr_0826.pls",
+    "klas4_khnd_app.pls",
+    "klas5_app_final.pls",
+    "klas5_dep_0108.pls"
+  ]
+}

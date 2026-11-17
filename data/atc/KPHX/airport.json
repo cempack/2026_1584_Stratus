@@ -1,0 +1,15 @@
+{
+  "icao": "KPHX",
+  "name": "Phoenix Sky Harbor International Airport",
+  "city": "Phoenix",
+  "country": "US",
+  "lat": 33.4353,
+  "lng": -112.0059,
+  "order": [
+    "kphx_twr_both.pls",
+    "kphx4_twr_em.pls",
+    "kphx_app_s.pls",
+    "kphx_app_sat.pls",
+    "kphx_dep.pls"
+  ]
+}

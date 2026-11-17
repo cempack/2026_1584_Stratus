@@ -1,0 +1,14 @@
+{
+  "icao": "YPPH",
+  "name": "Perth International Airport",
+  "city": "Perth",
+  "country": "AU",
+  "lat": -31.9403,
+  "lng": 115.967,
+  "order": [
+    "ypph2_twr.pls",
+    "ypph_twr.pls",
+    "ypph2_app.pls",
+    "ypph_app.pls"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "icao": "LSGG",
+  "name": "Geneva International Airport",
+  "city": "Geneva",
+  "country": "CH",
+  "lat": 46.2381,
+  "lng": 6.10895,
+  "order": [
+    "lsgg_arr.pls",
+    "lsgg_afdt.pls",
+    "lsgg_dep.pls",
+    "lsgg_rdr.pls",
+    "lsgg_rdr_ini.pls"
+  ]
+}

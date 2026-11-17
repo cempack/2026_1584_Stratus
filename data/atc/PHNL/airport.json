@@ -1,0 +1,15 @@
+{
+  "icao": "PHNL",
+  "name": "Daniel K. Inouye International Airport",
+  "city": "Honolulu",
+  "country": "US",
+  "lat": 21.31839,
+  "lng": -157.92567,
+  "order": [
+    "phnl1_twr.pls",
+    "phnl1_twr_pri.pls",
+    "phnl1_app_119100.pls",
+    "phnl1_app_e.pls",
+    "phnl1_gnd.pls"
+  ]
+}

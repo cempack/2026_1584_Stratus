@@ -1,0 +1,15 @@
+{
+  "icao": "KLGA",
+  "name": "LaGuardia Airport",
+  "city": "New York",
+  "country": "US",
+  "lat": 40.7772,
+  "lng": -73.8726,
+  "order": [
+    "klga1_twr_118700.pls",
+    "klga_118_twr.pls",
+    "klga_final2.pls",
+    "klga_118_app_haarp.pls",
+    "klga_118_dep_135350.pls"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "icao": "KBOS",
+  "name": "Boston Logan International Airport",
+  "city": "Boston",
+  "country": "US",
+  "lat": 42.36197,
+  "lng": -71.0079,
+  "order": [
+    "kbos1_twr.pls",
+    "kbos1_twr_132225.pls",
+    "kbos1_app_fin1.pls",
+    "kbos1_app_north.pls",
+    "kbos1_dep_133000.pls"
+  ]
+}

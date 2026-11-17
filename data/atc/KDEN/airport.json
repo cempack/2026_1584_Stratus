@@ -1,0 +1,15 @@
+{
+  "icao": "KDEN",
+  "name": "Denver International Airport",
+  "city": "Denver",
+  "country": "US",
+  "lat": 39.86003,
+  "lng": -104.67379,
+  "order": [
+    "kden1_twr_west1.pls",
+    "kden1_twr_east.pls",
+    "kden1_app_fin1.pls",
+    "kden1_app_fin2.pls",
+    "kden1_zdv_128650.pls"
+  ]
+}

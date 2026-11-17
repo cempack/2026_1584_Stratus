@@ -1,0 +1,14 @@
+{
+  "icao": "KTPA",
+  "name": "Tampa International Airport",
+  "city": "Tampa",
+  "country": "US",
+  "lat": 27.9755,
+  "lng": -82.5332,
+  "order": [
+    "ktpa2.pls",
+    "ktpa5_twr.pls",
+    "kpie1_app_118800.pls",
+    "ktpa5_dep_118800.pls"
+  ]
+}

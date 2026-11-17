@@ -1,0 +1,15 @@
+{
+  "icao": "KSAN",
+  "name": "San Diego International Airport",
+  "city": "San Diego",
+  "country": "US",
+  "lat": 32.7336,
+  "lng": -117.19,
+  "order": [
+    "ksan1_twr.pls",
+    "ksan_app_delmar.pls",
+    "ksan_app_east.pls",
+    "ksan1_gnd.pls",
+    "ksan1_del.pls"
+  ]
+}

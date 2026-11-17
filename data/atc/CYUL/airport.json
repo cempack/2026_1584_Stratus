@@ -1,0 +1,15 @@
+{
+  "icao": "CYUL",
+  "name": "Montreal / Pierre Elliott Trudeau International Airport",
+  "city": "Montreal",
+  "country": "CA",
+  "lat": 45.46784,
+  "lng": -73.74229,
+  "order": [
+    "cyul_twr.pls",
+    "cyul_all.pls",
+    "cyul_app.pls",
+    "cyul_gnd.pls",
+    "cyul_ctr_mtl.pls"
+  ]
+}

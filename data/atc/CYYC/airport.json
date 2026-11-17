@@ -1,0 +1,13 @@
+{
+  "icao": "CYYC",
+  "name": "Calgary International Airport",
+  "city": "Calgary",
+  "country": "CA",
+  "lat": 51.11882,
+  "lng": -114.00993,
+  "order": [
+    "cyyc2_twr.pls",
+    "cyyc2_1.pls",
+    "cyyc2_app.pls"
+  ]
+}

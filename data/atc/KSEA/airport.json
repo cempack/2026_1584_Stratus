@@ -1,0 +1,15 @@
+{
+  "icao": "KSEA",
+  "name": "Seattle–Tacoma International Airport",
+  "city": "Seattle",
+  "country": "US",
+  "lat": 47.44794,
+  "lng": -122.31028,
+  "order": [
+    "ksea3_twr_east.pls",
+    "ksea3_twr_west.pls",
+    "ksea3_app_e.pls",
+    "ksea3_app_s.pls",
+    "ksea3_dep_east.pls"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "icao": "KFLL",
+  "name": "Fort Lauderdale Hollywood International Airport",
+  "city": "Fort Lauderdale",
+  "country": "US",
+  "lat": 26.0726,
+  "lng": -80.1527,
+  "order": [
+    "kopf5_dep_126050.pls"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "icao": "KDCA",
+  "name": "Ronald Reagan Washington National Airport",
+  "city": "Washington",
+  "country": "US",
+  "lat": 38.8521,
+  "lng": -77.0377,
+  "order": [
+    "kdca1_twr.pls",
+    "kdca.pls",
+    "kmrb1_app_luray.pls",
+    "kdca1_dep_121050.pls",
+    "kdca1_dep.pls"
+  ]
+}

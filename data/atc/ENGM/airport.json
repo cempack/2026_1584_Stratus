@@ -1,0 +1,11 @@
+{
+  "icao": "ENGM",
+  "name": "Oslo-Gardermoen International Airport",
+  "city": "Oslo",
+  "country": "NO",
+  "lat": 60.1939,
+  "lng": 11.1004,
+  "order": [
+    "eneg2.pls"
+  ]
+}

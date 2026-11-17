@@ -1,0 +1,15 @@
+{
+  "icao": "KMIA",
+  "name": "Miami International Airport",
+  "city": "Miami",
+  "country": "US",
+  "lat": 25.79601,
+  "lng": -80.28975,
+  "order": [
+    "kmia3_twr.pls",
+    "kmia3_twr_1183.pls",
+    "kmia3_app_133775.pls",
+    "kmia3_app_12575.pls",
+    "kmia3_dep_1255.pls"
+  ]
+}

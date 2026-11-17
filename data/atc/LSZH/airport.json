@@ -1,0 +1,15 @@
+{
+  "icao": "LSZH",
+  "name": "Zürich Airport",
+  "city": "Zurich",
+  "country": "CH",
+  "lat": 47.45806,
+  "lng": 8.54806,
+  "order": [
+    "lszh1_twr.pls",
+    "lszh1_app_east.pls",
+    "lszh1_app_fin2.pls",
+    "lszh1_dep.pls",
+    "lszh1_gnd.pls"
+  ]
+}

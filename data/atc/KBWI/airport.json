@@ -1,0 +1,15 @@
+{
+  "icao": "KBWI",
+  "name": "Baltimore/Washington International Thurgood Marshall Airport",
+  "city": "Baltimore",
+  "country": "US",
+  "lat": 39.1754,
+  "lng": -76.6683,
+  "order": [
+    "kbwi_es_twr.pls",
+    "kbwi_es_app_125525.pls",
+    "kbwi_es_final.pls",
+    "kbwi_es_gnd.pls",
+    "kbwi_es_zdc_swann.pls"
+  ]
+}

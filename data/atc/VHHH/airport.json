@@ -1,0 +1,12 @@
+{
+  "icao": "VHHH",
+  "name": "Hong Kong International Airport",
+  "city": "Hong Kong",
+  "country": "HK",
+  "lat": 22.31184,
+  "lng": 113.91486,
+  "order": [
+    "vhhh9.pls",
+    "vhhh5.pls"
+  ]
+}

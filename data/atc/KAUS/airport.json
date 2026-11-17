@@ -1,0 +1,15 @@
+{
+  "icao": "KAUS",
+  "name": "Austin Bergstrom International Airport",
+  "city": "Austin",
+  "country": "US",
+  "lat": 30.19753,
+  "lng": -97.66201,
+  "order": [
+    "kaus3_twr.pls",
+    "kaus3_twr_secondary.pls",
+    "kaus3_app_dep.pls",
+    "kaus3_app_e.pls",
+    "kaus3_gnd.pls"
+  ]
+}

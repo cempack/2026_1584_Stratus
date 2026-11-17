@@ -1,0 +1,11 @@
+{
+  "icao": "YBBN",
+  "name": "Brisbane International Airport",
+  "city": "Brisbane",
+  "country": "AU",
+  "lat": -27.3842,
+  "lng": 153.117,
+  "order": [
+    "ybbn7_twr.pls"
+  ]
+}

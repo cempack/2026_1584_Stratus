@@ -1,0 +1,13 @@
+{
+  "icao": "KMCO",
+  "name": "Orlando International Airport",
+  "city": "Orlando",
+  "country": "US",
+  "lat": 28.4294,
+  "lng": -81.309,
+  "order": [
+    "korl_kmco_twr_west.pls",
+    "korl_kmco_app_120150.pls",
+    "korl_kmco_app_124800.pls"
+  ]
+}

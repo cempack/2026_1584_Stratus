@@ -1,0 +1,15 @@
+{
+  "icao": "KEWR",
+  "name": "Newark Liberty International Airport",
+  "city": "Newark",
+  "country": "US",
+  "lat": 40.6894,
+  "lng": -74.17055,
+  "order": [
+    "kewr_twr.pls",
+    "kewr_twr_sf1.pls",
+    "kewr_app_ard2.pls",
+    "kewr_app_final.pls",
+    "kewr_dep_lib_w.pls"
+  ]
+}

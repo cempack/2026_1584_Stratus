@@ -1,0 +1,15 @@
+{
+  "icao": "KDTW",
+  "name": "Detroit Metropolitan Wayne County Airport",
+  "city": "Detroit",
+  "country": "US",
+  "lat": 42.21377,
+  "lng": -83.35379,
+  "order": [
+    "kdtw_twr.pls",
+    "kdtw_s2.pls",
+    "kdtw_app_125150.pls",
+    "kdtw_app_124050.pls",
+    "kdtw_dep_132025.pls"
+  ]
+}
