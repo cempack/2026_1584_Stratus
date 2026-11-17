@@ -15,7 +15,7 @@ import type { LayerPrefs } from "./lib/prefs";
 import { MetarFeed } from "./map/metar";
 import { PlaneLayer } from "./map/planes";
 import { Radar } from "./map/radar";
-import { installImagery } from "./map/imagery";
+import { imageryTileSize, installImagery } from "./map/imagery";
 import { restyle } from "./map/restyle";
 import { type Theme, buildStyle } from "./map/style";
 import { nightPolygons } from "./map/sun";
@@ -79,7 +79,7 @@ setTimeout(() => { bootGates.map = bootGates.data = true; bootStep("map"); }, 70
 installImagery();
 const map = new maplibregl.Map({
   container: "map",
-  style: buildStyle(currentTheme(), { satellite }),
+  style: buildStyle(currentTheme(), { satellite, satTileSize: imageryTileSize() }),
   center: initial.ll ? [initial.ll[1], initial.ll[0]] : [6, 46],
   zoom: initial.z ?? 3.4,
   minZoom: 1.3,
@@ -91,6 +91,7 @@ const map = new maplibregl.Map({
   canvasContextAttributes: { antialias: true },
   attributionControl: false, // credits live behind the "i" button in the bottom row
 });
+installImagery(map);
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 const layer = new PlaneLayer(map, store);
@@ -229,7 +230,11 @@ function flyToPoint(lat: number, lon: number, zoom: number) {
 // marker is drawn at in that same frame.
 const FOLLOW_ENTRY_MS = 1300;
 let fBearing = 0, lastFollowT = 0, needLevel = false;
-let entry: { t0: number; lat: number; lon: number; zoom: number; pitch: number; bearing: number; zoomTo: number } | null = null;
+let entry: { t0: number; lat: number; lon: number; zoom: number; pitch: number; bearing: number } | null = null;
+// Zoom while following: MapLibre's own zoom animations are cancelled by the per-frame jumpTo, so wheel, pinch and the
+// +/− buttons set this target instead and the follow loop eases toward it.
+let fZoom = 7;
+const clampZoom = (z: number) => Math.max(3, Math.min(map.getMaxZoom(), z));
 
 function setFollow(on: boolean) {
   const was = follow;
@@ -241,8 +246,9 @@ function setFollow(on: boolean) {
     const c = map.getCenter();
     fBearing = map.getBearing();
     lastFollowT = performance.now();
-    entry = reducedMotion() ? null : { t0: lastFollowT, lat: c.lat, lon: c.lng, zoom: map.getZoom(), pitch: map.getPitch(), bearing: fBearing, zoomTo: Math.max(map.getZoom(), 7) };
-    if (!entry) map.jumpTo({ zoom: Math.max(map.getZoom(), 7), pitch: FOLLOW_PITCH });
+    fZoom = clampZoom(Math.max(map.getZoom(), 7));
+    entry = reducedMotion() ? null : { t0: lastFollowT, lat: c.lat, lon: c.lng, zoom: map.getZoom(), pitch: map.getPitch(), bearing: fBearing };
+    if (!entry) map.jumpTo({ zoom: fZoom, pitch: FOLLOW_PITCH });
     map.setPadding(padding());
   } else if (was) { entry = null; levelCamera(); }
 }
@@ -251,8 +257,8 @@ const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").match
 
 layer.onSelectedMove = (lat, lon, trk) => {
   if (!follow) return;
-  const now = performance.now();
-  fBearing = lerpBearing(fBearing, trk ?? fBearing, smoothing(now - lastFollowT, 1400));
+  const now = performance.now(), dt = now - lastFollowT;
+  fBearing = lerpBearing(fBearing, trk ?? fBearing, smoothing(dt, 1400));
   lastFollowT = now;
   if (entry) {
     const k = easeOut(Math.min(1, (now - entry.t0) / FOLLOW_ENTRY_MS));
@@ -260,15 +266,42 @@ layer.onSelectedMove = (lat, lon, trk) => {
     if (dLon > 180) dLon -= 360; else if (dLon < -180) dLon += 360;
     map.jumpTo({
       center: [entry.lon + dLon * k, entry.lat + (lat - entry.lat) * k],
-      zoom: entry.zoom + (entry.zoomTo - entry.zoom) * k,
+      zoom: entry.zoom + (fZoom - entry.zoom) * k,
       pitch: entry.pitch + (FOLLOW_PITCH - entry.pitch) * k,
       bearing: lerpBearing(entry.bearing, fBearing, k),
     });
     if (k >= 1) entry = null;
     return;
   }
-  map.jumpTo({ center: [lon, lat], bearing: fBearing });
+  const z = map.getZoom();
+  map.jumpTo({ center: [lon, lat], bearing: fBearing, zoom: Math.abs(fZoom - z) < 0.001 ? z : z + (fZoom - z) * smoothing(dt, 140) });
 };
+
+// Captured on the map's parent so MapLibre never sees them while following (its handlers would end follow / be cancelled).
+{
+  const host = $("map");
+  let pinch: { d0: number; z0: number } | null = null;
+  const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  host.addEventListener("wheel", (e) => {
+    if (!follow) return;
+    e.preventDefault(); e.stopPropagation();
+    const dy = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    fZoom = clampZoom(fZoom - dy / 300);
+  }, { capture: true, passive: false });
+  host.addEventListener("touchstart", (e) => {
+    if (!follow || e.touches.length !== 2) return;
+    e.stopPropagation();
+    pinch = { d0: dist(e.touches), z0: fZoom };
+  }, { capture: true, passive: true });
+  host.addEventListener("touchmove", (e) => {
+    if (!follow || !pinch || e.touches.length !== 2) return;
+    e.preventDefault(); e.stopPropagation();
+    fZoom = clampZoom(pinch.z0 + Math.log2(dist(e.touches) / Math.max(1, pinch.d0)));
+  }, { capture: true, passive: false });
+  const endPinch = (e: TouchEvent) => { if (pinch) { e.stopPropagation(); if (e.touches.length < 2) pinch = null; } };
+  host.addEventListener("touchend", endPinch, { capture: true });
+  host.addEventListener("touchcancel", endPinch, { capture: true });
+}
 map.on("movestart", (e) => {
   const type = (e as { originalEvent?: Event }).originalEvent?.type;
   if (follow && endsFollow(type)) { follow = false; entry = null; needLevel = true; panel.setFollow(false); winds.hold(false); }
@@ -532,15 +565,15 @@ initSearch({
 });
 
 // ---------- toolbar, layers menu ----------
-$("zoom-in").addEventListener("click", () => map.zoomIn({ duration: 300 }));
-$("zoom-out").addEventListener("click", () => map.zoomOut({ duration: 300 }));
+$("zoom-in").addEventListener("click", () => { if (follow) fZoom = clampZoom(fZoom + 1); else map.zoomIn({ duration: 300 }); });
+$("zoom-out").addEventListener("click", () => { if (follow) fZoom = clampZoom(fZoom - 1); else map.zoomOut({ duration: 300 }); });
 /** Theme or satellite changed: patch the live style in place (tiles, planes and radar stay), full reload only as a fallback. */
 let styled = { theme: currentTheme(), satellite };
 function applyBasemap(theme: Theme, sat: boolean) {
   const prev = styled;
   styled = { theme, satellite: sat };
-  const ok = map.isStyleLoaded() !== false && restyle(map, buildStyle(prev.theme, { satellite: prev.satellite }).layers, buildStyle(theme, { satellite: sat }).layers);
-  if (!ok) { map.setStyle(buildStyle(theme, { satellite: sat }), { diff: false }); return; }
+  const ok = map.isStyleLoaded() !== false && restyle(map, buildStyle(prev.theme, { satellite: prev.satellite, satTileSize: imageryTileSize() }).layers, buildStyle(theme, { satellite: sat, satTileSize: imageryTileSize() }).layers);
+  if (!ok) { map.setStyle(buildStyle(theme, { satellite: sat, satTileSize: imageryTileSize() }), { diff: false }); return; }
   if (prev.theme !== theme) { layer.retheme(prev.theme, theme); radar.setTheme(theme); updateNight(); paintLegend(); }
   paintWindTone();
   document.body.classList.toggle("sat", sat);
@@ -586,6 +619,14 @@ map.once("load", () => {
 });
 
 // ---------- keyboard ----------
+// +/− while following: same zoom target as the wheel (MapLibre's keyboard zoom would be cancelled)
+document.addEventListener("keydown", (e) => {
+  if (!follow || e.ctrlKey || e.metaKey || (e.target as HTMLElement)?.closest?.("input, textarea")) return;
+  const d = e.key === "+" || e.key === "=" ? 1 : e.key === "-" || e.key === "_" ? -1 : 0;
+  if (!d) return;
+  e.preventDefault(); e.stopPropagation();
+  fZoom = clampZoom(fZoom + d);
+}, true);
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (closeTopmost()) return;

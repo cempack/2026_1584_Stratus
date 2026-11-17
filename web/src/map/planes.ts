@@ -7,7 +7,7 @@ import { type Track, greatCircle, renderPos, shapeOf, STALE_S, unwrap, type Shap
 import { type Compiled, NO_FILTERS, compileFilters } from "../lib/filters";
 import { CATEGORY_COLOR, categoryOf } from "../lib/airport";
 import { serverNow, type Airport, type Metar, type Runway, type TrailPoint } from "../api";
-import { PATHS, SHAPES, makeIcon } from "./icons";
+import { ICON_PIXEL_RATIO, PATHS, SHAPES, makeIcon } from "./icons";
 import { EMPTY, SOURCE_IDS, buildOverlay } from "./layers";
 import { restyle } from "./restyle";
 import { ACCENT, type Theme } from "./style";
@@ -39,7 +39,7 @@ function selEl() {
   return el;
 }
 
-/** CSS px of a plane icon at zoom `z` (same ramp as the symbol layers: 60 px image at pixelRatio 2 → 30 px). */
+/** CSS px of a plane icon at zoom `z` (same ramp as the symbol layers: 120 px image at pixelRatio 4 → 30 px). */
 function iconPx(z: number, k: number) {
   const stops: [number, number][] = [[2, 0.36], [5, 0.5], [8, 0.66], [11, 0.85], [15, 1.05]];
   let f = stops[0][1];
@@ -48,7 +48,7 @@ function iconPx(z: number, k: number) {
     if (z <= z0) break;
     f = z >= z1 ? f1 : f0 + ((f1 - f0) * (z - z0)) / (z1 - z0);
   }
-  return 30 * 48 / 60 * f * k; // the silhouette spans 48 of the 60 px image
+  return 30 * 96 / 120 * f * k; // the silhouette spans 96 of the 120 px image
 }
 
 export class PlaneLayer {
@@ -97,8 +97,8 @@ export class PlaneLayer {
   install(theme: Theme) {
     const m = this.map;
     for (const s of SHAPES) {
-      if (!m.hasImage(`plane-${s}`)) m.addImage(`plane-${s}`, makeIcon(s), { sdf: true, pixelRatio: 2 });
-      if (!m.hasImage(`ring-${s}`)) m.addImage(`ring-${s}`, makeIcon(s, true), { sdf: true, pixelRatio: 2 });
+      if (!m.hasImage(`plane-${s}`)) m.addImage(`plane-${s}`, makeIcon(s), { sdf: true, pixelRatio: ICON_PIXEL_RATIO });
+      if (!m.hasImage(`ring-${s}`)) m.addImage(`ring-${s}`, makeIcon(s, true), { sdf: true, pixelRatio: ICON_PIXEL_RATIO });
     }
     const { sources, layers } = buildOverlay(theme, { atcVisible: this.atcVisible, metarVisible: this.metarVisible });
     for (const [id, spec] of Object.entries(sources)) if (!m.getSource(id)) m.addSource(id, spec);

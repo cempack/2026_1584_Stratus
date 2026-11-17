@@ -14,7 +14,7 @@ import airportList from "./airports.json";
 import land110 from "./land110.json";
 
 export type Theme = "dark" | "light";
-export interface BasemapOptions { satellite?: boolean }
+export interface BasemapOptions { satellite?: boolean; /** satellite tile size in CSS px (128 = sharp on dense screens) */ satTileSize?: number }
 
 export const ACCENT = { dark: "#F5B544", light: "#D4900F" } as const;
 
@@ -121,8 +121,8 @@ export function buildStyle(theme: Theme, opts: BasemapOptions = {}): StyleSpecif
       land: { type: "geojson", data: land110 as unknown as GeoJSONSourceSpecification["data"], tolerance: 0.4, maxzoom: 4, buffer: 64 },
       airports: { type: "geojson", data: AIRPORTS_GEOJSON as unknown as GeoJSONSourceSpecification["data"], maxzoom: 8 },
       night: { type: "geojson", data: EMPTY_FC as unknown as GeoJSONSourceSpecification["data"] },
-      // esri:// is a protocol registered in imagery.ts (HTTP/2 host with a fallback)
-      sat: { type: "raster", tiles: ["esri://{z}/{y}/{x}"], tileSize: 256, maxzoom: 18,
+      // esri:// is a protocol registered in imagery.ts (sharded, cached, prefetched)
+      sat: { type: "raster", tiles: ["esri://{z}/{y}/{x}"], tileSize: opts.satTileSize ?? 256, maxzoom: 18,
         attribution: "Imagery © Esri, Maxar, Earthstar Geographics" },
     },
     layers,

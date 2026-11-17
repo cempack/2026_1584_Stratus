@@ -72,7 +72,7 @@ export function buildOverlay(theme: Theme, opts: { atcVisible?: boolean; metarVi
     { id: "planes-est-ring", type: "symbol", source: "planes-est", layout: iconLayout(1, ["get", "ring"]),
       paint: { "icon-color": altColor, "icon-opacity": ["*", 0.95, ["get", "op"]] } },
     { id: "planes", type: "symbol", source: "planes", layout: iconLayout(1),
-      paint: { "icon-color": altColor, "icon-opacity": ["get", "op"], "icon-halo-color": c.halo, "icon-halo-width": 0.8, "icon-halo-blur": 0 } },
+      paint: { "icon-color": altColor, "icon-opacity": ["get", "op"], "icon-halo-color": c.halo, "icon-halo-width": 1.1, "icon-halo-blur": 0.2 } },
     { id: "plane-labels", type: "symbol", source: "planes", minzoom: 8,
       layout: { "text-field": ["get", "cs"], "text-font": FONT, "text-size": 11, "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true },
       paint: { "text-color": c.label, "text-halo-color": c.labelHalo, "text-halo-width": 1.2, "text-opacity": ["get", "op"] } },
