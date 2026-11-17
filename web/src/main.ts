@@ -16,6 +16,7 @@ import { MetarFeed } from "./map/metar";
 import { PlaneLayer } from "./map/planes";
 import { Radar } from "./map/radar";
 import { imageryTileSize, installImagery } from "./map/imagery";
+import { adaptQuality, initialPixelRatio } from "./map/quality";
 import { restyle } from "./map/restyle";
 import { type Theme, buildStyle } from "./map/style";
 import { nightPolygons } from "./map/sun";
@@ -87,12 +88,13 @@ const map = new maplibregl.Map({
   dragRotate: false,
   pitchWithRotate: false,
   renderWorldCopies: false,
-  pixelRatio: Math.min(2, window.devicePixelRatio || 1),
+  pixelRatio: initialPixelRatio(),
   // no MSAA: symbols and lines antialias in their shaders; full-canvas MSAA was a large GPU cost on the globe
   canvasContextAttributes: { antialias: false },
   attributionControl: false, // credits live behind the "i" button in the bottom row
 });
 installImagery(map);
+adaptQuality(map);
 map.touchZoomRotate.disableRotation();
 map.keyboard.disableRotation();
 const layer = new PlaneLayer(map, store);

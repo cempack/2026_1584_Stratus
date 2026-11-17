@@ -75,6 +75,7 @@ export class PlaneLayer {
   private selMarker: maplibregl.Marker | null = null;
   private selShape: Shape | null = null;
   private selRot: number | null = null;
+  private selPx = "";
   private selRotT = 0;
   private atcMarker: maplibregl.Marker | null = null;
   private filter: Compiled = compileFilters(NO_FILTERS);
@@ -126,7 +127,7 @@ export class PlaneLayer {
     this.dirty = true;
     this.setDetail([], null, null, false);
     this.setFullTrack(null);
-    this.selMarker?.remove(); this.selMarker = null; this.selShape = null; this.selRot = null;
+    this.selMarker?.remove(); this.selMarker = null; this.selShape = null; this.selRot = null; this.selPx = "";
   }
 
   setAtc(points: { icao: string; lat: number; lon: number }[]) {
@@ -358,7 +359,8 @@ export class PlaneLayer {
       el.querySelector("path")!.setAttribute("d", PATHS[shape]);
       el.style.setProperty("--sz", String(SIZE[shape]));
     }
-    el.style.setProperty("--px", `${iconPx(this.map.getZoom(), 1.35 * SIZE[shape]).toFixed(1)}px`);
+    const px = `${iconPx(this.map.getZoom(), 1.35 * SIZE[shape]).toFixed(1)}px`;
+    if (px !== this.selPx) { this.selPx = px; el.style.setProperty("--px", px); } // no style write when unchanged
     el.classList.toggle("est", !!tr.est);
     // heading changes arrive in steps (one per fix): turn the icon smoothly instead of snapping
     const trk = tr.trk ?? this.selRot ?? 0;

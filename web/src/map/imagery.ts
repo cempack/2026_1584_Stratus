@@ -19,8 +19,8 @@ const CACHE_TILES = 900; // ~20 MB of JPEG
 const PREFETCH_CONCURRENCY = 4;
 const PREFETCH_MAX = 64;
 
-/** On a dense screen tiles are requested one level deeper (128 CSS px each = 256 device px): sharp imagery. */
-export const imageryTileSize = () => ((window.devicePixelRatio || 1) >= 1.5 ? 128 : 256);
+/** 256: the deeper 128 px variant (sharper on dense screens) cost ~4x the tiles and draw calls: too slow. */
+export const imageryTileSize = () => 256;
 
 const cache = new Map<string, Promise<ArrayBuffer>>();
 const url = (z: number, y: number, x: number) => `${HOSTS[(x + y) % HOSTS.length]}/${z}/${y}/${x}`;
