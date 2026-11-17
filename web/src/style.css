@@ -345,6 +345,22 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .vol { display: flex; align-items: center; gap: 8px; color: var(--ink-3); flex: 1; min-width: 0; padding: 0 2px; }
 .vol > span { width: 18px; height: 18px; flex: none; }
 .vol input { flex: 1; min-width: 0; }
+/* subtitles: a quiet "CC" toggle, the last calls under the tuner (newest strongest), a bubble above the mini-player */
+.cc-btn { flex: none; height: 26px; padding: 0 8px; border: 1.5px solid var(--line-strong); border-radius: 7px; background: transparent;
+  font: 700 11px/1 var(--font); letter-spacing: 0.06em; color: var(--ink-3); transition: background-color 140ms, color 140ms, border-color 140ms; }
+.cc-btn:hover { color: var(--ink); border-color: var(--ink-3); }
+.cc-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--glass-solid); }
+.cc { display: grid; gap: 6px; padding: 2px 2px 0; }
+.cc p { margin: 0; font-size: 13px; line-height: 18px; color: var(--ink-3); animation: cc-in 260ms var(--ease) both; }
+.cc .cc-line.now { color: var(--ink); font-weight: 500; }
+.cc .cc-wait { font-size: 12px; color: var(--ink-3); animation: none; }
+.cc-lang { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--surface-3); font: 650 10px/16px var(--mono); letter-spacing: 0.04em; color: var(--ink-2); vertical-align: 1px; }
+@keyframes cc-in { from { opacity: 0; transform: translateY(3px); } }
+.mini { position: relative; }
+.mini-cc { position: absolute; left: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(360px, calc(100vw - 32px)); margin: 0; padding: 7px 11px;
+  border-radius: 12px; font-size: 12.5px; line-height: 17px; color: var(--ink); opacity: 0; transform: translateY(4px); pointer-events: none;
+  transition: opacity 220ms var(--ease), transform 220ms var(--ease); }
+.mini-cc.show:not(:empty) { opacity: 1; transform: none; }
 
 /* ---------- bottom zone ---------- */
 .b-left, .b-right { position: relative; display: flex; align-items: flex-end; min-width: 0; }

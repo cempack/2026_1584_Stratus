@@ -8,6 +8,7 @@
 // network failures. 8 kbps feeds take a few seconds to start, so a watchdog gives up after 12 s and moves on to the
 // next feed of the same airport before offering a retry button.
 import { type AtcAirport, type AtcFeed, atcAudioUrl, fetchAtc } from "../api";
+import { Captions } from "./captions";
 import { MseStream, mseSupported } from "../lib/stream";
 import { norm } from "../lib/core";
 import { KIND_ICON, Meter, chipLabels, feedKind, parseFreq } from "../lib/radio";
@@ -71,6 +72,7 @@ export class Atc {
   private meter = new Meter();
   private rx = false;
   private litSegments = -1;
+  private cc = new Captions();
 
   constructor(private hooks: AtcHooks) {
     this.audio.preload = "none";
@@ -148,7 +150,9 @@ export class Atc {
     this.loadState = "loading"; this.renderList();
     const ctl = new AbortController();
     const to = setTimeout(() => ctl.abort(), 10_000);
-    return (this.loaded = fetchAtc(ctl.signal).then((a) => {
+    return (this.loaded = fetchAtc(ctl.signal).then(({ airports: a, captions }) => {
+      this.cc.available = captions;
+      this.cc.follow(this.isLive ? this.current?.icao ?? null : null, this.isLive ? this.feed?.id ?? null : null);
       this.airports = a.filter((x) => x.feeds?.length).sort((x, y) => x.name.localeCompare(y.name, "fr"));
       this.loadState = this.airports.length ? "ok" : "empty";
       this.hooks.onAirports(this.airports.filter((x) => Number.isFinite(x.lat) && Number.isFinite(x.lon)));
@@ -316,6 +320,7 @@ export class Atc {
     clearInterval(this.ticker);
     if (s === "live" || s === "buffering") this.ticker = setInterval(() => this.renderTime(), 1000);
     this.hooks.onLive(this.isLive ? this.current : null);
+    this.cc.follow(this.isLive ? this.current?.icao ?? null : null, this.isLive ? this.feed?.id ?? null : null);
     this.renderAll();
     this.draw();
     if (this.isLive && !this.raf) this.raf = requestAnimationFrame((t) => this.loop(t));

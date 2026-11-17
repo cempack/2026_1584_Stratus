@@ -129,7 +129,11 @@ export async function fetchStatus(): Promise<Status> {
 }
 export const fetchWeather = (lat: number, lon: number, alt: number | null) =>
   json<Weather>(`/api/weather?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}&alt=${Math.round(alt ?? 0)}`);
-export const fetchAtc = async (signal?: AbortSignal) => (await json<{ airports: AtcAirport[] }>("/api/atc/airports", { signal })).airports ?? [];
+export const fetchAtc = async (signal?: AbortSignal) => {
+  const d = await json<{ airports: AtcAirport[]; captions?: boolean }>("/api/atc/airports", { signal });
+  return { airports: d.airports ?? [], captions: !!d.captions };
+};
+export const atcCaptionsUrl = (icao: string, feed: string) => `/api/atc/captions?icao=${encodeURIComponent(icao)}&feed=${encodeURIComponent(feed)}`;
 export const atcAudioUrl = (icao: string, feed: string) => `/api/atc/audio?icao=${encodeURIComponent(icao)}&feed=${encodeURIComponent(feed)}`;
 
 /**

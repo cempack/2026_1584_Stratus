@@ -15,6 +15,7 @@ from flask import Flask, Response, abort, jsonify, request, send_from_directory,
 from . import board
 from .airports import Airports
 from .atc import AUDIO_HEADERS, AtcCatalog
+from .captions import CaptionHub
 from .audiohub import AudioHub, Unavailable
 from .config import Config
 from .enrich import Enricher, observed_departure, reconcile_route
@@ -59,6 +60,7 @@ class Runtime:
                                enabled=cfg.sweep_enabled)
         self.atc = AtcCatalog(cfg.atc_dir)
         self.audio = AudioHub(AUDIO_HEADERS)
+        self.captions = CaptionHub(self.audio, self.cfg.cache_dir, self.cfg.captions_model, self.cfg.captions_enabled)
         self.stop = threading.Event()
         self.started = False
         self._start_lock = threading.Lock()
@@ -241,7 +243,7 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
             n, v = len(rt.store.planes), rt.store.version
         return _json({"planes": n, "v": v, "t": round(time.time(), 1),
                       "estimated": rt.store.estimated_count(), "alerts": len(rt.store.emergencies()),
-                      "feeds": {"opensky": rt.opensky.status(), **rt.readsb.status()},
+                      "feeds": {"opensky": rt.opensky.status(), **rt.readsb.status()}, "captions": rt.captions.status(),
                       "sweep": rt.sweeper.status(), "fr24": rt.fr24.status()})
 
     @app.get("/api/alerts")
@@ -330,7 +332,23 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
 
     @app.get("/api/atc/airports")
     def atc_airports():
-        return _json(rt.atc.public())
+        return _json({**rt.atc.public(), "captions": rt.captions.enabled})
+
+    @app.get("/api/atc/captions")
+    def atc_captions():
+        """Server-sent events: live English subtitles for one feed (see captions.py)."""
+        if not rt.captions.enabled:
+            return _json({"error": "captions are not available", "reason": "disabled"}, 503)
+        feed = rt.atc.resolve(request.args.get("icao", ""), request.args.get("feed"))
+        if not feed:
+            return _json({"error": "unknown airport or feed"}, 404)
+
+        def events():
+            for ev in rt.captions.subscribe(feed["url"]):
+                yield ": ping\n\n" if ev.get("type") == "ping" else f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+
+        return Response(stream_with_context(events()), mimetype="text/event-stream",
+                        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
     @app.get("/api/atc/audio")
     def atc_audio():

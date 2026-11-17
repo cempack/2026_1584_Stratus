@@ -47,6 +47,8 @@ class Config:
     sweep_enabled: bool = True
     sweep_interval: float = 1.5
     estimates_enabled: bool = True
+    captions_enabled: bool = True  # live ATC subtitles (needs faster-whisper; off when it is not installed)
+    captions_model: str = "small"
 
     @property
     def cache_dir(self) -> Path:
@@ -74,6 +76,8 @@ class Config:
             sweep_enabled=_env_bool("STRATUS_SWEEP", True),
             sweep_interval=_env_float("STRATUS_SWEEP_INTERVAL", 1.5),
             estimates_enabled=_env_bool("STRATUS_ESTIMATES", True),
+            captions_enabled=_env_bool("STRATUS_CAPTIONS", True),
+            captions_model=os.environ.get("STRATUS_CAPTIONS_MODEL", "").strip() or "small",
         )
         if data_dir:
             cfg.data_dir = Path(data_dir)
