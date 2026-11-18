@@ -9,7 +9,7 @@ export function credits(o: CreditOpts): Credit[] {
     { name: "© OpenMapTiles", href: "https://www.openmaptiles.org/" },
     { name: "© OpenStreetMap", href: "https://www.openstreetmap.org/copyright" },
     { name: "OpenSky Network", href: "https://opensky-network.org", note: "positions" },
-    { name: "adsb.lol", href: "https://adsb.lol", note: "positions" },
+    { name: "adsb.lol", href: "https://adsb.lol", note: "positions, données ODbL 1.0" },
     { name: "adsb.fi", href: "https://adsb.fi", note: "positions" },
     { name: "adsbdb", href: "https://www.adsbdb.com", note: "appareils, itinéraires" },
     { name: "Planespotters.net", href: "https://www.planespotters.net", note: "photos" },
