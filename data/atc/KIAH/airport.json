@@ -11,5 +11,37 @@
     "kiah3_app_134300.pls",
     "kiah2_dep_133600.pls",
     "kiah2_dep_132250.pls"
-  ]
+  ],
+  "freqs": {
+    "kiah2_twr_15_33": [
+      [
+        "127.300",
+        "Houston Tower (Runways 15/33LR)"
+      ]
+    ],
+    "kiah2_twr_8r26l": [
+      [
+        "125.350",
+        "Houston Tower (Runway 8R/26L)"
+      ]
+    ],
+    "kiah3_app_134300": [
+      [
+        "134.300",
+        "Houston Approach (Far NW Satellite)"
+      ]
+    ],
+    "kiah2_dep_133600": [
+      [
+        "133.600",
+        "Houston Departure (East)"
+      ]
+    ],
+    "kiah2_dep_132250": [
+      [
+        "132.250",
+        "Houston Departure (NE High)"
+      ]
+    ]
+  }
 }

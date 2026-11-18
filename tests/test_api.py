@@ -143,7 +143,7 @@ def test_weather_picks_level_and_caches(client, session):
 def test_atc_airports(client):
     d = client.get("/api/atc/airports").get_json()
     assert d["airports"] == [{"icao": "EHAM", "name": "Schiphol", "city": "Amsterdam", "country": "NL",
-                              "lat": 52.3, "lon": 4.76, "feeds": [{"id": "eham_twr", "label": "EHAM Tower"}]}]
+                              "lat": 52.3, "lon": 4.76, "feeds": [{"id": "eham_twr", "label": "EHAM Tower", "freqs": []}]}]
     assert isinstance(d["captions"], bool)
     assert client.get("/api/atc/audio?icao=ZZZZ").status_code == 404
 

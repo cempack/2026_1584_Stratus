@@ -11,5 +11,37 @@
     "ksea3_app_e.pls",
     "ksea3_app_s.pls",
     "ksea3_dep_east.pls"
-  ]
+  ],
+  "freqs": {
+    "ksea3_twr_east": [
+      [
+        "119.900",
+        "Seattle Tower (East)"
+      ]
+    ],
+    "ksea3_twr_west": [
+      [
+        "120.950",
+        "Seattle Tower (West)"
+      ]
+    ],
+    "ksea3_app_e": [
+      [
+        "125.600",
+        "Seattle Approach (East)"
+      ]
+    ],
+    "ksea3_app_s": [
+      [
+        "126.500",
+        "Seattle Approach (South)"
+      ]
+    ],
+    "ksea3_dep_east": [
+      [
+        "119.200",
+        "Seattle Departure (East)"
+      ]
+    ]
+  }
 }

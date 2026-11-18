@@ -11,5 +11,57 @@
     "kryy1_atlapp_121000.pls",
     "katl_app_fin_o.pls",
     "katl_dep_s.pls"
-  ]
+  ],
+  "freqs": {
+    "katl_twr": [
+      [
+        "119.500",
+        "Atlanta Tower (Rwy 10/28)"
+      ],
+      [
+        "119.100",
+        "Atlanta Tower (Rwy 8L/26R)"
+      ],
+      [
+        "125.325",
+        "Atlanta Tower (Rwy 8R/26L)"
+      ],
+      [
+        "123.850",
+        "Atlanta Tower (Rwy 9L/27R)"
+      ],
+      [
+        "119.300",
+        "Atlanta Tower (Rwy 9R/27L)"
+      ]
+    ],
+    "katl_twr_08": [
+      [
+        "119.100",
+        "Atlanta Tower (Runway 08L/26R)"
+      ],
+      [
+        "125.325",
+        "Atlanta Tower (Rwy 8R/26L)"
+      ]
+    ],
+    "kryy1_atlapp_121000": [
+      [
+        "121.000",
+        "Atlanta Approach (North Satellite)"
+      ]
+    ],
+    "katl_app_fin_o": [
+      [
+        "124.600",
+        "Atlanta Approach (Final Approach 27L/9R)"
+      ]
+    ],
+    "katl_dep_s": [
+      [
+        "125.650",
+        "Atlanta Departure"
+      ]
+    ]
+  }
 }

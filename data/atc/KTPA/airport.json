@@ -10,5 +10,31 @@
     "ktpa5_twr.pls",
     "kpie1_app_118800.pls",
     "ktpa5_dep_118800.pls"
-  ]
+  ],
+  "freqs": {
+    "ktpa2": [
+      [
+        "119.500",
+        "Tampa Tower"
+      ]
+    ],
+    "ktpa5_twr": [
+      [
+        "119.500",
+        "Tampa Tower"
+      ]
+    ],
+    "kpie1_app_118800": [
+      [
+        "118.800",
+        "Tampa Approach/Departure"
+      ]
+    ],
+    "ktpa5_dep_118800": [
+      [
+        "118.800",
+        "Tampa Approach/Departure"
+      ]
+    ]
+  }
 }

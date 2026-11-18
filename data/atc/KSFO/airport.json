@@ -6,5 +6,72 @@
   "lat": 37.619806,
   "lng": -122.374821,
   "description": "Aéroport international de San Francisco.",
-  "order": ["ksfo_twr.pls", "ksfo_gnd2.pls", "ksfo_app2.pls", "zoa_sfo.pls"]
+  "order": [
+    "ksfo_twr.pls",
+    "ksfo_gnd2.pls",
+    "ksfo_app2.pls",
+    "zoa_sfo.pls"
+  ],
+  "freqs": {
+    "ksfo_app2": [
+      [
+        "133.950",
+        "NORCAL Approach (Boulder Sector, BSR2 STAR)"
+      ],
+      [
+        "120.350",
+        "NORCAL Approach"
+      ],
+      [
+        "133.175",
+        "NORCAL Approach"
+      ],
+      [
+        "128.325",
+        "NORCAL Approach (Niles Sector, MOD2 STAR)"
+      ],
+      [
+        "135.650",
+        "NORCAL Approach"
+      ]
+    ],
+    "ksfo_gnd2": [
+      [
+        "118.200",
+        "San Francisco Clearance Delivery"
+      ],
+      [
+        "124.250",
+        "San Francisco Ground/Gate Hold"
+      ],
+      [
+        "128.650",
+        "San Francisco Tower (alternate/backup)"
+      ]
+    ],
+    "ksfo_twr": [
+      [
+        "120.500",
+        "San Francisco Tower"
+      ],
+      [
+        "128.650",
+        "San Francisco Tower (secondary)"
+      ]
+    ],
+    "zoa_sfo": [
+      [
+        "134.150",
+        "Oakland Center Sector 35"
+      ],
+      [
+        "127.800",
+        "Oakland Center Sector 40"
+      ],
+      [
+        "125.850",
+        "Oakland Center Sector 41"
+      ]
+    ]
+  }
 }

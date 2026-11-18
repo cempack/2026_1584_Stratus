@@ -11,5 +11,37 @@
     "rpll_app_119900.pls",
     "rpll_gnd.pls",
     "rpll_control_120500.pls"
-  ]
+  ],
+  "freqs": {
+    "rpll": [
+      [
+        "118.100",
+        "Manila Tower"
+      ]
+    ],
+    "rpll_app_124400": [
+      [
+        "124.400",
+        "Manila Approach/.Departure"
+      ]
+    ],
+    "rpll_app_119900": [
+      [
+        "119.900",
+        "Manila Approach/Departure"
+      ]
+    ],
+    "rpll_gnd": [
+      [
+        "121.800",
+        "Manila Ground"
+      ]
+    ],
+    "rpll_control_120500": [
+      [
+        "120.500",
+        "Manila Center"
+      ]
+    ]
+  }
 }

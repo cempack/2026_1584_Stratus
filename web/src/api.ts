@@ -31,7 +31,9 @@ export interface Status {
   estimated?: number; alerts?: number; fr24?: Fr24Info & { credits_used?: number };
 }
 export interface Weather { temp_c: number | null; wind_kt: number | null; wind_dir: number | null; cloud_pct: number | null; level: string | null; time: number }
-export interface AtcFeed { id: string; label: string }
+/** A frequency a feed monitors, as listed by LiveATC (exact; never derived). */
+export interface AtcFreq { mhz: string; name: string }
+export interface AtcFeed { id: string; label: string; freqs?: AtcFreq[] }
 export interface AtcAirport { icao: string; name: string; city: string | null; country: string | null; lat: number; lon: number; feeds: AtcFeed[] }
 
 export interface Alert {

@@ -7,5 +7,17 @@
   "lng": -66.0018,
   "order": [
     "tjsj1_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "tjsj1_gnd": [
+      [
+        "121.900",
+        "San Juan Ground"
+      ],
+      [
+        "132.050",
+        "San Juan Tower"
+      ]
+    ]
+  }
 }

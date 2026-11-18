@@ -11,5 +11,41 @@
     "klas4_khnd_app.pls",
     "klas5_app_final.pls",
     "klas5_dep_0108.pls"
-  ]
+  ],
+  "freqs": {
+    "klas4_twr": [
+      [
+        "118.750",
+        "Las Vegas Tower (Rwy 01L/19R, 01R/19L)"
+      ],
+      [
+        "119.900",
+        "Las Vegas Tower (Rwy 08L/26R,08R/26L)"
+      ]
+    ],
+    "klas4_twr_0826": [
+      [
+        "119.900",
+        "Las Vegas Tower (Rwy 08L/26R,08R/26L)"
+      ]
+    ],
+    "klas4_khnd_app": [
+      [
+        "125.475",
+        "Las Vegas Approach/Departure (HND Area)"
+      ]
+    ],
+    "klas5_app_final": [
+      [
+        "135.000",
+        "Las Vegas Approach (Final)"
+      ]
+    ],
+    "klas5_dep_0108": [
+      [
+        "133.950",
+        "Las Vegas Departure (Rwys 01/08)"
+      ]
+    ]
+  }
 }

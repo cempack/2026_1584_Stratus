@@ -10,5 +10,31 @@
     "epwa_app.pls",
     "epwa_app2.pls",
     "epwa_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "epwa_twr2": [
+      [
+        "118.300",
+        "Warsaw Tower"
+      ]
+    ],
+    "epwa_app": [
+      [
+        "128.805",
+        "Warsaw Approach"
+      ]
+    ],
+    "epwa_app2": [
+      [
+        "125.055",
+        "Warsaw Approach"
+      ]
+    ],
+    "epwa_gnd": [
+      [
+        "121.900",
+        "Warsaw Ground"
+      ]
+    ]
+  }
 }

@@ -10,5 +10,123 @@
     "kstl2.pls",
     "kstl_app.pls",
     "kstl2_del_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "kstl2_twr": [
+      [
+        "118.500",
+        "St. Louis Tower"
+      ],
+      [
+        "120.050",
+        "St. Louis Tower"
+      ],
+      [
+        "132.475",
+        "St. Louis Tower"
+      ],
+      [
+        "239.275",
+        "St. Louis Tower"
+      ],
+      [
+        "257.700",
+        "St. Louis Tower"
+      ],
+      [
+        "284.600",
+        "St. Louis Tower"
+      ]
+    ],
+    "kstl2": [
+      [
+        "119.500",
+        "St. Louis Clearance Delivery"
+      ],
+      [
+        "363.100",
+        "St. Louis Clearance Delivery"
+      ],
+      [
+        "121.075",
+        "St. Louis Clearance Metering"
+      ],
+      [
+        "127.550",
+        "St. Louis Clearance Metering"
+      ],
+      [
+        "360.200",
+        "St. Louis Clearance Metering"
+      ],
+      [
+        "118.925",
+        "St. Louis Ground"
+      ],
+      [
+        "121.900",
+        "St. Louis Ground"
+      ],
+      [
+        "118.500",
+        "St. Louis Tower"
+      ]
+    ],
+    "kstl_app": [
+      [
+        "119.150",
+        "St. Louis Approach"
+      ],
+      [
+        "121.025",
+        "St. Louis Approach"
+      ],
+      [
+        "123.700",
+        "St. Louis Approach"
+      ],
+      [
+        "124.200",
+        "St. Louis Approach"
+      ],
+      [
+        "124.250",
+        "St. Louis Approach"
+      ],
+      [
+        "125.200",
+        "St. Louis Approach"
+      ],
+      [
+        "126.500",
+        "St. Louis Approach"
+      ],
+      [
+        "126.550",
+        "St. Louis Approach"
+      ]
+    ],
+    "kstl2_del_gnd": [
+      [
+        "119.500",
+        "St. Louis Clearance Delivery"
+      ],
+      [
+        "121.075",
+        "St. Louis Clearance Metering"
+      ],
+      [
+        "127.550",
+        "St. Louis Clearance Metering"
+      ],
+      [
+        "118.925",
+        "St. Louis Ground"
+      ],
+      [
+        "121.900",
+        "St. Louis Ground"
+      ]
+    ]
+  }
 }

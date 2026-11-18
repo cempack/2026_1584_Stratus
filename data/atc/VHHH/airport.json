@@ -8,5 +8,71 @@
   "order": [
     "vhhh9.pls",
     "vhhh5.pls"
-  ]
+  ],
+  "freqs": {
+    "vhhh9": [
+      [
+        "121.500",
+        "Emergency/Guard"
+      ],
+      [
+        "122.150",
+        "Hong Kong Clearance Delivery"
+      ],
+      [
+        "121.875",
+        "Hong Kong Ground (Mid)"
+      ],
+      [
+        "121.600",
+        "Hong Kong Ground (North)"
+      ],
+      [
+        "122.550",
+        "Hong Kong Ground (South)"
+      ],
+      [
+        "118.700",
+        "Hong Kong Tower (North Secondary)"
+      ],
+      [
+        "118.200",
+        "Hong Kong Tower (North)"
+      ],
+      [
+        "118.400",
+        "Hong Kong Tower (South)"
+      ]
+    ],
+    "vhhh5": [
+      [
+        "121.500",
+        "Emergency/Guard"
+      ],
+      [
+        "119.100",
+        "Hong Kong Approach"
+      ],
+      [
+        "119.350",
+        "Hong Kong Approach"
+      ],
+      [
+        "122.000",
+        "Hong Kong Departure"
+      ],
+      [
+        "123.800",
+        "Hong Kong Departure"
+      ],
+      [
+        "124.050",
+        "Hong Kong Departure"
+      ],
+      [
+        "119.500",
+        "Hong Kong Director"
+      ]
+    ]
+  }
 }

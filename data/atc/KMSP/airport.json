@@ -11,5 +11,37 @@
     "kmsp1_app_134700.pls",
     "kmsp1_dep_ne.pls",
     "kmsp1_dep_se.pls"
-  ]
+  ],
+  "freqs": {
+    "kmsp1_twr_12r": [
+      [
+        "126.700",
+        "Minneapolis Tower (Runways 12R/30L, 4/22)"
+      ]
+    ],
+    "kmsp1_twr_12l": [
+      [
+        "123.950",
+        "Minneapolis Tower (Runway 12L/30R)"
+      ]
+    ],
+    "kmsp1_app_134700": [
+      [
+        "134.700",
+        "Minneapolis Approach (FCM Satellite Radar)"
+      ]
+    ],
+    "kmsp1_dep_ne": [
+      [
+        "125.750",
+        "Minneapolis Departure (North/East)"
+      ]
+    ],
+    "kmsp1_dep_se": [
+      [
+        "124.700",
+        "Minneapolis Departure (South/West)"
+      ]
+    ]
+  }
 }

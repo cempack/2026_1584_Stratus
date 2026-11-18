@@ -11,5 +11,41 @@
     "kafw1_dfw_app_119875.pls",
     "kdfw1_dep_w.pls",
     "kdfw1_dep_east.pls"
-  ]
+  ],
+  "freqs": {
+    "kdfw1_twr1_w": [
+      [
+        "124.150",
+        "DFW Tower (West)"
+      ]
+    ],
+    "kdfw1_twr1_e": [
+      [
+        "126.550",
+        "DFW Tower (East)"
+      ],
+      [
+        "127.500",
+        "DFW Tower (East)"
+      ]
+    ],
+    "kafw1_dfw_app_119875": [
+      [
+        "119.875",
+        "Regional Approach (DFW Feeder West)"
+      ]
+    ],
+    "kdfw1_dep_w": [
+      [
+        "126.475",
+        "Regional Departure (West)"
+      ]
+    ],
+    "kdfw1_dep_east": [
+      [
+        "118.550",
+        "Regional Departure (East)"
+      ]
+    ]
+  }
 }

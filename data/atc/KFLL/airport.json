@@ -7,5 +7,13 @@
   "lng": -80.1527,
   "order": [
     "kopf5_dep_126050.pls"
-  ]
+  ],
+  "freqs": {
+    "kopf5_dep_126050": [
+      [
+        "126.050",
+        "Miami Departure (FLL North Dep)"
+      ]
+    ]
+  }
 }

@@ -11,5 +11,103 @@
     "rjtt_twr.pls",
     "rjtt_app_dep.pls",
     "rjtt_control.pls"
-  ]
+  ],
+  "freqs": {
+    "rjtt_app_dep": [
+      [
+        "119.400",
+        "Tokyo Approach (North, East)"
+      ],
+      [
+        "119.100",
+        "Tokyo Approach (South, West)"
+      ],
+      [
+        "120.800",
+        "Tokyo Departure"
+      ],
+      [
+        "126.000",
+        "Tokyo Departure"
+      ]
+    ],
+    "rjtt_control": [
+      [
+        "120.500",
+        "Tokyo Control"
+      ],
+      [
+        "123.700",
+        "Tokyo Control"
+      ],
+      [
+        "125.900",
+        "Tokyo Control"
+      ],
+      [
+        "128.125",
+        "Tokyo Control"
+      ],
+      [
+        "132.100",
+        "Tokyo Control"
+      ]
+    ],
+    "rjtt_twr": [
+      [
+        "124.750",
+        "Tokyo TCA"
+      ],
+      [
+        "118.100",
+        "Tokyo Tower"
+      ],
+      [
+        "118.575",
+        "Tokyo Tower"
+      ],
+      [
+        "118.725",
+        "Tokyo Tower"
+      ],
+      [
+        "124.350",
+        "Tokyo Tower"
+      ]
+    ],
+    "rjtt_twr_tca": [
+      [
+        "121.825",
+        "Tokyo Clearance Delivery"
+      ],
+      [
+        "118.225",
+        "Tokyo Ground"
+      ],
+      [
+        "121.625",
+        "Tokyo Ground"
+      ],
+      [
+        "121.700",
+        "Tokyo Ground"
+      ],
+      [
+        "121.975",
+        "Tokyo Ground"
+      ],
+      [
+        "124.750",
+        "Tokyo TCA"
+      ],
+      [
+        "118.100",
+        "Tokyo Tower"
+      ],
+      [
+        "118.575",
+        "Tokyo Tower"
+      ]
+    ]
+  }
 }

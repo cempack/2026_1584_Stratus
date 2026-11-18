@@ -1,12 +1,30 @@
 // Pure helpers for the ATC radio: frequency parsing, channel kinds, level metering.
 
-/** "KJFK Tower 119.1" -> "119.100"; null when the label carries no VHF/UHF frequency. */
+/** A frequency written in the label ("KJFK Tower 119.1" -> "119.1"), exactly as written; null when there is none. */
 export function parseFreq(label: string): string | null {
   const m = /(?<![\d.,])(\d{3})[.,](\d{1,3})(?![\d])/.exec(label);
   if (!m) return null;
   const mhz = Number(m[1]);
   if (!((mhz >= 108 && mhz <= 137) || (mhz >= 225 && mhz <= 400))) return null;
-  return `${m[1]}.${m[2].padEnd(3, "0")}`;
+  return `${m[1]}.${m[2]}`;
+}
+
+export interface Freq { mhz: string; name: string }
+
+/**
+ * The frequency to headline for a feed: among the ones LiveATC lists, the first whose facility matches the channel
+ * kind (a "Tower" feed headlines a tower frequency), else the first listed; else one written in the label; else null.
+ * Nothing is ever derived or padded.
+ */
+export function primaryFreq(label: string, freqs: Freq[] | undefined): Freq | null {
+  const list = freqs ?? [];
+  if (list.length) {
+    const kind = feedKind(label).kind;
+    const re = KINDS.find(([k]) => k === kind)?.[1];
+    return (re && list.find((f) => re.test(f.name))) || list[0];
+  }
+  const inLabel = parseFreq(label);
+  return inLabel ? { mhz: inLabel, name: label } : null;
 }
 
 export type FeedKind = "atis" | "clearance" | "ground" | "tower" | "approach" | "departure" | "center" | "radio";
@@ -36,12 +54,12 @@ export function stripIcao(label: string, icao: string | null): string {
 }
 
 /** Short chip texts for one airport's feeds: the French channel name, or the frequency / cleaned label when two channels share a kind. */
-export function chipLabels(icao: string, labels: string[]): string[] {
+export function chipLabels(icao: string, labels: string[], freqs: (Freq[] | undefined)[] = []): string[] {
   const kinds = labels.map((l) => feedKind(l));
   return labels.map((l, i) => {
     const dup = kinds.filter((k) => k.name === kinds[i].name).length > 1;
     if (!dup) return kinds[i].name;
-    return parseFreq(l) ?? (stripIcao(l, icao).replace(/\s*\(.*\)\s*$/, "") || kinds[i].name);
+    return primaryFreq(l, freqs[i])?.mhz ?? (stripIcao(l, icao).replace(/\s*\(.*\)\s*$/, "") || kinds[i].name);
   });
 }
 

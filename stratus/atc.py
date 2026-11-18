@@ -53,11 +53,14 @@ def load_catalog(atc_dir: Path) -> list[dict]:
         except (OSError, ValueError):
             cfg = {}
         order = {name: i for i, name in enumerate(cfg.get("order") or [])}
+        freqs = cfg.get("freqs") or {}  # mount -> [[MHz, facility], ...] as listed by LiveATC (never invented)
         feeds, seen = [], set()
         for pls in sorted(d.glob("*.pls"), key=lambda p: (order.get(p.name, len(order)), p.name.lower())):
             f = _parse_pls(pls)
             if f and f["id"] not in seen:
                 seen.add(f["id"])
+                f["freqs"] = [{"mhz": str(m), "name": str(n)} for m, n in (freqs.get(f["id"]) or [])
+                              if re.fullmatch(r"\d{3}\.\d{3}", str(m))]
                 feeds.append(f)
         icao = str(cfg.get("icao") or d.name).strip().upper()
         if not feeds or not re.fullmatch(r"[A-Z0-9]{4}", icao):
@@ -76,7 +79,7 @@ class AtcCatalog:
         self.by_icao = {a["icao"]: a for a in self.airports}
 
     def public(self) -> dict:
-        return {"airports": [{**a, "feeds": [{"id": f["id"], "label": f["label"]} for f in a["feeds"]]}
+        return {"airports": [{**a, "feeds": [{"id": f["id"], "label": f["label"], "freqs": f["freqs"]} for f in a["feeds"]]}
                              for a in self.airports]}
 
     def resolve(self, icao: str, feed: str | None) -> dict | None:

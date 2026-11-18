@@ -10,5 +10,31 @@
     "ypph_twr.pls",
     "ypph2_app.pls",
     "ypph_app.pls"
-  ]
+  ],
+  "freqs": {
+    "ypph2_twr": [
+      [
+        "127.400",
+        "Perth Tower"
+      ]
+    ],
+    "ypph_twr": [
+      [
+        "127.400",
+        "Perth Tower"
+      ]
+    ],
+    "ypph2_app": [
+      [
+        "123.600",
+        "Perth Approach"
+      ]
+    ],
+    "ypph_app": [
+      [
+        "123.600",
+        "Perth Approach"
+      ]
+    ]
+  }
 }

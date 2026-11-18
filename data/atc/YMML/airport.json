@@ -7,5 +7,41 @@
   "lng": 144.8379,
   "order": [
     "ymml3.pls"
-  ]
+  ],
+  "freqs": {
+    "ymml3": [
+      [
+        "132.750",
+        "Air Ambulance"
+      ],
+      [
+        "119.100",
+        "DSE & Other Company"
+      ],
+      [
+        "125.100",
+        "Essendon Tower"
+      ],
+      [
+        "123.450",
+        "Inter-Pilot"
+      ],
+      [
+        "130.925",
+        "Jetstar Company"
+      ],
+      [
+        "127.200",
+        "Melbourne ACD"
+      ],
+      [
+        "132.000",
+        "Melbourne Approach"
+      ],
+      [
+        "122.400",
+        "Melbourne Centre"
+      ]
+    ]
+  }
 }

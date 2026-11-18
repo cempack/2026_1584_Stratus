@@ -11,7 +11,7 @@ import { type AtcAirport, type AtcFeed, atcAudioUrl, fetchAtc } from "../api";
 import { Captions } from "./captions";
 import { MseStream, mseSupported } from "../lib/stream";
 import { norm } from "../lib/core";
-import { KIND_ICON, Meter, chipLabels, feedKind, parseFreq } from "../lib/radio";
+import { KIND_ICON, Meter, chipLabels, feedKind, primaryFreq } from "../lib/radio";
 import { icon } from "./icons";
 import { closeOthers, registerPopover } from "./popovers";
 import { hide, show, shown } from "./motion";
@@ -354,18 +354,41 @@ export class Atc {
     pb.setAttribute("aria-label", playing ? "Arrêter" : "Écouter");
     $("btn-atc").classList.toggle("live", this.isLive);
 
-    // LCD: channel kind, frequency, full label
-    const fk = feedKind(f.label), freq = parseFreq(f.label);
+    // Tuner: channel kind, the headline frequency (real: LiveATC's list or the label, never padded or invented)
+    // with its facility, and the other frequencies the feed scans.
+    const fk = feedKind(f.label), prim = primaryFreq(f.label, f.freqs);
     $("atc-kind").textContent = fk.name;
     const ki = $("atc-kind-ico");
     if (ki.dataset.k !== fk.kind) { ki.dataset.k = fk.kind; ki.innerHTML = icon(KIND_ICON[fk.kind]); }
-    const fq = $("atc-freq");
-    fq.textContent = freq ?? "---.---";
-    fq.classList.toggle("none", !freq);
-    $("atc-label").textContent = feedLabel(a, f);
+    const box = $("atc-freq-box"), fq = $("atc-freq");
+    box.hidden = !prim;
+    if (prim) {
+      const [mhz, dec] = prim.mhz.split(".");
+      fq.replaceChildren(document.createTextNode(mhz), Object.assign(document.createElement("span"), { className: "dec", textContent: dec ? `.${dec}` : "" }));
+    }
+    $("atc-fac").textContent = prim ? prim.name.replace(new RegExp(`^${a.icao}\\s+`), "") : feedLabel(a, f);
+    $("atc-fac").classList.toggle("solo", !prim);
+    $("atc-lcd").title = f.label;
+    const others = (f.freqs ?? []).filter((x) => x.mhz !== prim?.mhz);
+    const list = $("atc-freqs");
+    list.hidden = !others.length;
+    const open = list.dataset.open === "1" && list.dataset.feed === f.id;
+    list.dataset.feed = f.id;
+    const shownFreqs = open ? others : others.slice(0, 4);
+    list.replaceChildren(...shownFreqs.map((x) => {
+      const li = document.createElement("li");
+      li.append(Object.assign(document.createElement("b"), { textContent: x.mhz }), Object.assign(document.createElement("span"), { textContent: x.name }));
+      return li;
+    }));
+    if (others.length > 4) {
+      const more = Object.assign(document.createElement("button"), { type: "button", className: "fq-more", textContent: open ? "Moins" : `+${others.length - 4} fréquences` });
+      more.addEventListener("click", () => { list.dataset.open = open ? "0" : "1"; this.renderAll(); });
+      list.append(Object.assign(document.createElement("li"), { className: "fq-more-row" }));
+      list.lastElementChild!.append(more);
+    }
 
     // channel chips with icons: Tour, Sol, Approche, ATIS...
-    const names = chipLabels(a.icao, a.feeds.map((x) => x.label));
+    const names = chipLabels(a.icao, a.feeds.map((x) => x.label), a.feeds.map((x) => x.freqs));
     $("atc-feeds").replaceChildren(...a.feeds.map((x, i) => {
       const b = document.createElement("button");
       b.type = "button"; b.dataset.feed = x.id; b.className = "chip-feed";
@@ -377,7 +400,7 @@ export class Atc {
     }));
 
     // mini-player
-    $("mini-freq").textContent = freq ?? fk.name;
+    $("mini-freq").textContent = prim?.mhz ?? fk.name;
     $("mini-code").textContent = this.st === "live" || this.st === "idle" ? a.icao : `${a.icao} · ${PILL[this.st]}`;
     this.renderTime();
   }

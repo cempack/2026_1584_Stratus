@@ -11,5 +11,37 @@
     "kmdw1_app_128200.pls",
     "kmdw1_app_119350.pls",
     "kmdw_3.pls"
-  ]
+  ],
+  "freqs": {
+    "kmdw_1": [
+      [
+        "135.200",
+        "Midway Tower"
+      ]
+    ],
+    "kmdw1_twr": [
+      [
+        "135.200",
+        "Midway Tower"
+      ]
+    ],
+    "kmdw1_app_128200": [
+      [
+        "128.200",
+        "Chicago Approach/Departure"
+      ]
+    ],
+    "kmdw1_app_119350": [
+      [
+        "119.350",
+        "Chicago Approach/Departure"
+      ]
+    ],
+    "kmdw_3": [
+      [
+        "118.075",
+        "Midway Ground"
+      ]
+    ]
+  }
 }

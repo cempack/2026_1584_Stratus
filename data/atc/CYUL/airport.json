@@ -11,5 +11,137 @@
     "cyul_app.pls",
     "cyul_gnd.pls",
     "cyul_ctr_mtl.pls"
-  ]
+  ],
+  "freqs": {
+    "cyul_twr": [
+      [
+        "119.300",
+        "Montreal Tower"
+      ],
+      [
+        "119.900",
+        "Montreal Tower"
+      ],
+      [
+        "124.300",
+        "Montreal Tower"
+      ]
+    ],
+    "cyul_all": [
+      [
+        "122.075",
+        "CYUL Apron - East Apron"
+      ],
+      [
+        "125.650",
+        "CYUL Clearance Delivery"
+      ],
+      [
+        "122.525",
+        "CYUL De-ice - Aeromag Pad Control"
+      ],
+      [
+        "123.125",
+        "CYUL De-ice - Iceman (spray crew)"
+      ],
+      [
+        "121.900",
+        "CYUL Ground - East Ground (primary)"
+      ],
+      [
+        "121.000",
+        "CYUL Ground - West Ground"
+      ],
+      [
+        "122.675",
+        "CYUL Ramp/De-ice ops"
+      ],
+      [
+        "123.175",
+        "CYUL Ramp/De-ice ops"
+      ]
+    ],
+    "cyul_app": [
+      [
+        "118.900",
+        "Montreal Terminal"
+      ],
+      [
+        "120.425",
+        "Montreal Terminal"
+      ],
+      [
+        "124.650",
+        "Montreal Terminal"
+      ],
+      [
+        "125.150",
+        "Montreal Terminal"
+      ],
+      [
+        "126.900",
+        "Montreal Terminal"
+      ],
+      [
+        "132.850",
+        "Montreal Terminal"
+      ],
+      [
+        "134.150",
+        "VFR Advisory"
+      ]
+    ],
+    "cyul_gnd": [
+      [
+        "122.075",
+        "Montreal Apron"
+      ],
+      [
+        "125.600",
+        "Montreal Clearance Delivery"
+      ],
+      [
+        "121.900",
+        "Montreal Ground (East)"
+      ],
+      [
+        "121.000",
+        "Montreal Ground (West)"
+      ]
+    ],
+    "cyul_ctr_mtl": [
+      [
+        "134.400",
+        "Montreal Center"
+      ],
+      [
+        "133.225",
+        "Montreal Center"
+      ],
+      [
+        "132.350",
+        "Montreal Center"
+      ],
+      [
+        "132.550",
+        "Montreal Center"
+      ],
+      [
+        "126.575",
+        "Montreal Center"
+      ],
+      [
+        "135.600",
+        "Montreal Center"
+      ],
+      [
+        "123.925",
+        "Montreal Center"
+      ],
+      [
+        "127.875",
+        "Montreal Center"
+      ]
+    ]
+  }
 }

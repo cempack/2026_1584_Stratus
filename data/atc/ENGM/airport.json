@@ -7,5 +7,37 @@
   "lng": 11.1004,
   "order": [
     "eneg2.pls"
-  ]
+  ],
+  "freqs": {
+    "eneg2": [
+      [
+        "122.700",
+        "ENEG Tower"
+      ],
+      [
+        "134.925",
+        "Polaris ACC Sector 13"
+      ],
+      [
+        "125.700",
+        "Polaris ACC Sector 18"
+      ],
+      [
+        "125.050",
+        "Polaris ACC Sector 3"
+      ],
+      [
+        "127.250",
+        "Polaris ACC Sector 5"
+      ],
+      [
+        "124.775",
+        "Polaris ACC Sector 7"
+      ],
+      [
+        "134.350",
+        "Polaris ACC Sector 8"
+      ]
+    ]
+  }
 }

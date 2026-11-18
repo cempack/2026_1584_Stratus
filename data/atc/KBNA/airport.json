@@ -11,5 +11,53 @@
     "kbna_app_west.pls",
     "kbna_app.pls",
     "kbna_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "kbna_twr": [
+      [
+        "118.600",
+        "Nashville Tower"
+      ]
+    ],
+    "kbna_gnd_twr": [
+      [
+        "121.900",
+        "Nashville Ground"
+      ],
+      [
+        "118.600",
+        "Nashville Tower"
+      ]
+    ],
+    "kbna_app_west": [
+      [
+        "119.350",
+        "Nashville App/Dep (West)"
+      ],
+      [
+        "124.750",
+        "Nashville Approach (Final)"
+      ]
+    ],
+    "kbna_app": [
+      [
+        "118.400",
+        "Nashville App/Dep (East)"
+      ],
+      [
+        "119.350",
+        "Nashville App/Dep (West)"
+      ],
+      [
+        "124.750",
+        "Nashville Approach (Final)"
+      ]
+    ],
+    "kbna_gnd": [
+      [
+        "121.900",
+        "Nashville Ground"
+      ]
+    ]
+  }
 }

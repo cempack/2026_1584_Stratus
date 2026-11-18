@@ -11,5 +11,65 @@
     "kdtw_app_125150.pls",
     "kdtw_app_124050.pls",
     "kdtw_dep_132025.pls"
-  ]
+  ],
+  "freqs": {
+    "kdtw_twr": [
+      [
+        "118.400",
+        "Detroit Tower (East)"
+      ],
+      [
+        "135.000",
+        "Detroit Tower (West)"
+      ]
+    ],
+    "kdtw_s2": [
+      [
+        "119.450",
+        "Detroit Ground (NE)"
+      ],
+      [
+        "121.800",
+        "Detroit Ground (NW)"
+      ],
+      [
+        "119.250",
+        "Detroit Ground (SE)"
+      ],
+      [
+        "132.725",
+        "Detroit Ground (SW)"
+      ],
+      [
+        "128.750",
+        "Detroit Metro Tower (Rwy 3L/21R, 27L)"
+      ],
+      [
+        "118.400",
+        "Detroit Tower (East)"
+      ],
+      [
+        "135.000",
+        "Detroit Tower (West)"
+      ]
+    ],
+    "kdtw_app_125150": [
+      [
+        "125.150",
+        "Detroit Approach (Arrival East)"
+      ]
+    ],
+    "kdtw_app_124050": [
+      [
+        "124.050",
+        "Detroit Approach (Arrival West)"
+      ]
+    ],
+    "kdtw_dep_132025": [
+      [
+        "132.025",
+        "Detroit Departure (East)"
+      ]
+    ]
+  }
 }

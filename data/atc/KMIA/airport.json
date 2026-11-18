@@ -11,5 +11,41 @@
     "kmia3_app_133775.pls",
     "kmia3_app_12575.pls",
     "kmia3_dep_1255.pls"
-  ]
+  ],
+  "freqs": {
+    "kmia3_twr": [
+      [
+        "118.300",
+        "Miami Tower (North)"
+      ],
+      [
+        "123.900",
+        "Miami Tower (South)"
+      ]
+    ],
+    "kmia3_twr_1183": [
+      [
+        "118.300",
+        "Miami Tower (North)"
+      ]
+    ],
+    "kmia3_app_133775": [
+      [
+        "133.775",
+        "Miami Approach (KFLL)"
+      ]
+    ],
+    "kmia3_app_12575": [
+      [
+        "125.750",
+        "Miami Approach (North arrivals backup)"
+      ]
+    ],
+    "kmia3_dep_1255": [
+      [
+        "125.500",
+        "Miami Departure South"
+      ]
+    ]
+  }
 }

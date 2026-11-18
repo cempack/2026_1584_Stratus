@@ -9,5 +9,25 @@
     "kslc_twr16r_132650.pls",
     "kslc_app_fin_125700.pls",
     "kslc_gnd_w_123775.pls"
-  ]
+  ],
+  "freqs": {
+    "kslc_twr16r_132650": [
+      [
+        "132.650",
+        "Salt Lake Tower (Rwy 16R/34L)"
+      ]
+    ],
+    "kslc_app_fin_125700": [
+      [
+        "125.700",
+        "Salt Lake Approach (Final)"
+      ]
+    ],
+    "kslc_gnd_w_123775": [
+      [
+        "123.775",
+        "Salt Lake Ground"
+      ]
+    ]
+  }
 }

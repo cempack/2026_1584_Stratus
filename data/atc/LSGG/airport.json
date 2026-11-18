@@ -11,5 +11,65 @@
     "lsgg_dep.pls",
     "lsgg_rdr.pls",
     "lsgg_rdr_ini.pls"
-  ]
+  ],
+  "freqs": {
+    "lsgg_arr": [
+      [
+        "136.255",
+        "Geneva Arrival"
+      ]
+    ],
+    "lsgg_afdt": [
+      [
+        "136.255",
+        "Geneva Arrival"
+      ],
+      [
+        "119.530",
+        "Geneva Departure"
+      ]
+    ],
+    "lsgg_dep": [
+      [
+        "119.530",
+        "Geneva Departure"
+      ]
+    ],
+    "lsgg_rdr": [
+      [
+        "134.850",
+        "Geneva Radar L1 FL250-280"
+      ],
+      [
+        "126.050",
+        "Geneva Radar L2 FL290-310"
+      ],
+      [
+        "134.315",
+        "Geneva Radar L3 FL320-330"
+      ],
+      [
+        "136.015",
+        "Geneva Radar L3 FL320-330"
+      ],
+      [
+        "128.155",
+        "Geneva Radar L5 FL360-370"
+      ]
+    ],
+    "lsgg_rdr_ini": [
+      [
+        "128.905",
+        "Geneva Radar Initial East"
+      ],
+      [
+        "134.030",
+        "Geneva Radar Initial North"
+      ],
+      [
+        "124.225",
+        "Geneva Radar Initial South"
+      ]
+    ]
+  }
 }

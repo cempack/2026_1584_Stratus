@@ -11,5 +11,35 @@
     "mmmx1_app_final.pls",
     "mmmx1_app.pls",
     "mmmx1_ctr_n.pls"
-  ]
+  ],
+  "freqs": {
+    "mmmx1_app": [
+      [
+        "121.200",
+        "Mexico City Approach"
+      ]
+    ],
+    "mmmx1_app_final": [
+      [
+        "119.750",
+        "Mexico City Approach (Final)"
+      ]
+    ],
+    "mmmx1_ctr_n": [
+      [
+        "133.100",
+        "Mexico Center North"
+      ]
+    ],
+    "mmmx1_twr": [
+      [
+        "118.550",
+        "Mexico City Tower"
+      ],
+      [
+        "118.700",
+        "Mexico City Tower"
+      ]
+    ]
+  }
 }

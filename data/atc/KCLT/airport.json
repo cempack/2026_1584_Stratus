@@ -10,5 +10,35 @@
     "kclt7_dep_120500.pls",
     "kclt4_arr.pls",
     "kclt7_dep_119000.pls"
-  ]
+  ],
+  "freqs": {
+    "kclt7_twr_118100": [
+      [
+        "118.100",
+        "Charlotte Tower"
+      ]
+    ],
+    "kclt7_dep_120500": [
+      [
+        "120.500",
+        "Charlotte Approach/Departure (High North)"
+      ]
+    ],
+    "kclt4_arr": [
+      [
+        "132.700",
+        "Charlotte Approach (Arrival)"
+      ],
+      [
+        "125.350",
+        "Charlotte Approach (Arrival/NW)"
+      ]
+    ],
+    "kclt7_dep_119000": [
+      [
+        "119.000",
+        "Charlotte Departure"
+      ]
+    ]
+  }
 }

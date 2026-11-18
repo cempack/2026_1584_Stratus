@@ -11,5 +11,47 @@
     "kjfk9_s.pls",
     "kjfk9_app_camrn.pls",
     "kjfk_dep.pls"
-  ]
+  ],
+  "freqs": {
+    "kjfk9_app_camrn": [
+      [
+        "128.125",
+        "New York Approach (CAMRN Sector)"
+      ]
+    ],
+    "kjfk9_s": [
+      [
+        "121.650",
+        "JFK Ground"
+      ],
+      [
+        "121.900",
+        "JFK Ground"
+      ],
+      [
+        "123.900",
+        "JFK Tower (4L/22R, 13R/31L)"
+      ],
+      [
+        "119.100",
+        "JFK Tower (4R/22L, 13L/31R)"
+      ],
+      [
+        "125.250",
+        "TCA (Class B 2000ft/below within 8nm)"
+      ]
+    ],
+    "kjfk_dep": [
+      [
+        "135.900",
+        "NY Departure (JFK)"
+      ]
+    ],
+    "kjfk_twr_1191": [
+      [
+        "119.100",
+        "JFK Tower (4R/22L, 13L/31R)"
+      ]
+    ]
+  }
 }

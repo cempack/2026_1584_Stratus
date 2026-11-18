@@ -11,5 +11,41 @@
     "kbwi_es_final.pls",
     "kbwi_es_gnd.pls",
     "kbwi_es_zdc_swann.pls"
-  ]
+  ],
+  "freqs": {
+    "kbwi_es_twr": [
+      [
+        "119.400",
+        "Baltimore Tower"
+      ]
+    ],
+    "kbwi_es_app_125525": [
+      [
+        "125.525",
+        "Potomac Approach (BELAY Sector)"
+      ]
+    ],
+    "kbwi_es_final": [
+      [
+        "119.000",
+        "Potomac Approach (BWI Final North)"
+      ],
+      [
+        "119.700",
+        "Potomac Approach (BWI Final South)"
+      ]
+    ],
+    "kbwi_es_gnd": [
+      [
+        "121.900",
+        "Baltimore Ground"
+      ]
+    ],
+    "kbwi_es_zdc_swann": [
+      [
+        "134.500",
+        "Washington Center (SWANN Sector)"
+      ]
+    ]
+  }
 }

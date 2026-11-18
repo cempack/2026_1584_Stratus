@@ -7,5 +7,17 @@
   "lng": 153.117,
   "order": [
     "ybbn7_twr.pls"
-  ]
+  ],
+  "freqs": {
+    "ybbn7_twr": [
+      [
+        "118.000",
+        "Brisbane Tower (Rwy 1L/19R)"
+      ],
+      [
+        "120.500",
+        "Brisbane Tower (Rwy 1R/19L)"
+      ]
+    ]
+  }
 }

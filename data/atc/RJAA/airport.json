@@ -11,5 +11,45 @@
     "rjaa_dep1.pls",
     "rjaa_dep.pls",
     "rjaa_gnd2.pls"
-  ]
+  ],
+  "freqs": {
+    "rjaa_twr": [
+      [
+        "118.350",
+        "Narita Tower (Rwy 16L/34R)"
+      ],
+      [
+        "118.200",
+        "Narita Tower (Rwy 16R/34L)"
+      ]
+    ],
+    "rjaa_twr1": [
+      [
+        "118.200",
+        "Narita Tower (Rwy 16R/34L)"
+      ]
+    ],
+    "rjaa_dep1": [
+      [
+        "124.200",
+        "Tokyo Departure"
+      ]
+    ],
+    "rjaa_dep": [
+      [
+        "119.600",
+        "Tokyo Departure"
+      ],
+      [
+        "124.200",
+        "Tokyo Departure"
+      ]
+    ],
+    "rjaa_gnd2": [
+      [
+        "121.950",
+        "Narita Ground"
+      ]
+    ]
+  }
 }

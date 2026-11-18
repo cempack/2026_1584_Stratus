@@ -11,5 +11,53 @@
     "kaus3_app_dep.pls",
     "kaus3_app_e.pls",
     "kaus3_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "kaus3_twr": [
+      [
+        "121.000",
+        "Austin Tower"
+      ]
+    ],
+    "kaus3_twr_secondary": [
+      [
+        "118.225",
+        "KAUS Tower (Secondary) #1"
+      ]
+    ],
+    "kaus3_app_dep": [
+      [
+        "125.325",
+        "Austin Approach (Final)"
+      ],
+      [
+        "119.000",
+        "Austin Approach (West)"
+      ],
+      [
+        "127.225",
+        "Austin Approach/Departure (East)"
+      ],
+      [
+        "118.150",
+        "Austin Approach/Departure (SE)"
+      ],
+      [
+        "120.875",
+        "Austin Approach/Departure (South)"
+      ]
+    ],
+    "kaus3_app_e": [
+      [
+        "127.225",
+        "Austin Approach/Departure (East)"
+      ]
+    ],
+    "kaus3_gnd": [
+      [
+        "121.900",
+        "Austin Ground"
+      ]
+    ]
+  }
 }

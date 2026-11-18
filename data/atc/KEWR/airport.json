@@ -11,5 +11,37 @@
     "kewr_app_ard2.pls",
     "kewr_app_final.pls",
     "kewr_dep_lib_w.pls"
-  ]
+  ],
+  "freqs": {
+    "kewr_twr": [
+      [
+        "118.300",
+        "Newark Tower"
+      ]
+    ],
+    "kewr_twr_sf1": [
+      [
+        "118.300",
+        "Newark Tower"
+      ]
+    ],
+    "kewr_app_ard2": [
+      [
+        "128.550",
+        "New York Approach (ARD Sector)"
+      ]
+    ],
+    "kewr_app_final": [
+      [
+        "125.500",
+        "New York Approach (EWR Final)"
+      ]
+    ],
+    "kewr_dep_lib_w": [
+      [
+        "120.850",
+        "New York Departure (Liberty West)"
+      ]
+    ]
+  }
 }

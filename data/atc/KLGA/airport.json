@@ -11,5 +11,37 @@
     "klga_final2.pls",
     "klga_118_app_haarp.pls",
     "klga_118_dep_135350.pls"
-  ]
+  ],
+  "freqs": {
+    "klga1_twr_118700": [
+      [
+        "118.700",
+        "LaGuardia Tower"
+      ]
+    ],
+    "klga_118_twr": [
+      [
+        "118.700",
+        "LaGuardia Tower"
+      ]
+    ],
+    "klga_final2": [
+      [
+        "134.900",
+        "New York Approach (LGA Final)"
+      ]
+    ],
+    "klga_118_app_haarp": [
+      [
+        "120.800",
+        "New York Approach (HAARP Sector)"
+      ]
+    ],
+    "klga_118_dep_135350": [
+      [
+        "135.350",
+        "New York Departure (LGA)"
+      ]
+    ]
+  }
 }

@@ -11,5 +11,41 @@
     "phnl1_app_119100.pls",
     "phnl1_app_e.pls",
     "phnl1_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "phnl1_twr": [
+      [
+        "118.100",
+        "Honolulu Tower (Primary)"
+      ],
+      [
+        "123.900",
+        "Honolulu Tower (Rwy 08R/26L)"
+      ]
+    ],
+    "phnl1_twr_pri": [
+      [
+        "118.100",
+        "Honolulu Tower (Primary)"
+      ]
+    ],
+    "phnl1_app_119100": [
+      [
+        "119.100",
+        "HCF Approach/Departure"
+      ]
+    ],
+    "phnl1_app_e": [
+      [
+        "124.800",
+        "HCF Approach/Departure (East)"
+      ]
+    ],
+    "phnl1_gnd": [
+      [
+        "121.900",
+        "Honolulu Ground"
+      ]
+    ]
+  }
 }

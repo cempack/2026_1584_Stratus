@@ -8,5 +8,51 @@
   "order": [
     "eidw8.pls",
     "eidw82.pls"
-  ]
+  ],
+  "freqs": {
+    "eidw8": [
+      [
+        "121.100",
+        "Dublin Approach"
+      ],
+      [
+        "132.575",
+        "Dublin Centre"
+      ],
+      [
+        "125.880",
+        "Dublin Ground (North)"
+      ],
+      [
+        "121.800",
+        "Dublin Ground (South)"
+      ],
+      [
+        "124.680",
+        "Dublin Tower (North)"
+      ],
+      [
+        "118.600",
+        "Dublin Tower (South)"
+      ]
+    ],
+    "eidw82": [
+      [
+        "121.100",
+        "Dublin Approach"
+      ],
+      [
+        "119.930",
+        "Dublin Approach (Final)"
+      ],
+      [
+        "124.680",
+        "Dublin Tower (North)"
+      ],
+      [
+        "118.600",
+        "Dublin Tower (South)"
+      ]
+    ]
+  }
 }

@@ -11,5 +11,43 @@
     "yssy1_del_gnd.pls",
     "yssy1_dir_e.pls",
     "yssy1_atis1.pls"
-  ]
+  ],
+  "freqs": {
+    "yssy1_atis1": [
+      [
+        "118.550",
+        "Sydney ATIS"
+      ]
+    ],
+    "yssy1_del_gnd": [
+      [
+        "133.800",
+        "Sydney Clearance Delivery"
+      ],
+      [
+        "121.700",
+        "Sydney Ground (East of Rwys 16R/34L)"
+      ],
+      [
+        "126.500",
+        "Sydney Ground (West of Rwys 16R/34L)"
+      ]
+    ],
+    "yssy1_dir_e": [
+      [
+        "125.300",
+        "Sydney Director (East)"
+      ]
+    ],
+    "yssy1_twr": [
+      [
+        "124.700",
+        "Sydney Tower (Rwy 16L/34R)"
+      ],
+      [
+        "120.500",
+        "Sydney Tower (Rwy 16R/34L, Rwy 07/25)"
+      ]
+    ]
+  }
 }

@@ -9,5 +9,37 @@
     "cyyc2_twr.pls",
     "cyyc2_1.pls",
     "cyyc2_app.pls"
-  ]
+  ],
+  "freqs": {
+    "cyyc2_twr": [
+      [
+        "118.400",
+        "Calgary Tower"
+      ]
+    ],
+    "cyyc2_1": [
+      [
+        "125.900",
+        "Calgary Arrivals"
+      ],
+      [
+        "119.800",
+        "Calgary Departures"
+      ],
+      [
+        "118.400",
+        "Calgary Tower"
+      ]
+    ],
+    "cyyc2_app": [
+      [
+        "125.900",
+        "Calgary Arrivals"
+      ],
+      [
+        "119.800",
+        "Calgary Departures"
+      ]
+    ]
+  }
 }

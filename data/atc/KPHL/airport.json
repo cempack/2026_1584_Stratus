@@ -11,5 +11,65 @@
     "kphl_final.pls",
     "kphl_app_119750.pls",
     "kphl_dep.pls"
-  ]
+  ],
+  "freqs": {
+    "kphl_twr_east": [
+      [
+        "118.500",
+        "Philadelphia Tower (East)"
+      ]
+    ],
+    "kphl_twr_both": [
+      [
+        "118.500",
+        "Philadelphia Tower (East)"
+      ],
+      [
+        "135.100",
+        "Philadelphia Tower (West)"
+      ]
+    ],
+    "kphl_final": [
+      [
+        "125.400",
+        "Philly Approach (Final)"
+      ],
+      [
+        "132.675",
+        "Philly Approach (Final2 - Landing Rwy 27L)"
+      ]
+    ],
+    "kphl_app_119750": [
+      [
+        "119.750",
+        "Philly Approach/Departure (South)"
+      ]
+    ],
+    "kphl_dep": [
+      [
+        "126.850",
+        "Philadelpha Approach"
+      ],
+      [
+        "123.800",
+        "Philadelpha Approach"
+      ],
+      [
+        "118.350",
+        "Philadelphia Approach (Dupont)"
+      ],
+      [
+        "126.075",
+        "Philadelphia Departure"
+      ],
+      [
+        "119.750",
+        "Philadelphia Departure (South Departure)"
+      ],
+      [
+        "124.350",
+        "Philly Departure (North Departure)"
+      ]
+    ]
+  }
 }

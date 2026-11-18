@@ -11,5 +11,141 @@
     "cyvr1_app.pls",
     "cyvr2.pls",
     "cyvr1_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "cyvr1_twr": [
+      [
+        "120.150",
+        "Vancouver Tower (Backup)"
+      ],
+      [
+        "119.550",
+        "Vancouver Tower (North)"
+      ],
+      [
+        "124.000",
+        "Vancouver Tower (Outer)"
+      ],
+      [
+        "118.700",
+        "Vancouver Tower (South)"
+      ],
+      [
+        "125.650",
+        "Vancouver Tower (VFR)"
+      ]
+    ],
+    "cyvr1_gnd_twr": [
+      [
+        "122.675",
+        "Emergency (Discrete)"
+      ],
+      [
+        "121.400",
+        "Vancouver Clearance Delivery"
+      ],
+      [
+        "121.700",
+        "Vancouver Ground (North)"
+      ],
+      [
+        "127.150",
+        "Vancouver Ground (South)"
+      ],
+      [
+        "120.150",
+        "Vancouver Tower (Backup)"
+      ],
+      [
+        "119.550",
+        "Vancouver Tower (North)"
+      ],
+      [
+        "124.000",
+        "Vancouver Tower (Outer)"
+      ],
+      [
+        "118.700",
+        "Vancouver Tower (South)"
+      ]
+    ],
+    "cyvr1_app": [
+      [
+        "128.600",
+        "Vancouver Terminal (Arrival High Outer)"
+      ],
+      [
+        "134.225",
+        "Vancouver Terminal (Arrival Inner)"
+      ],
+      [
+        "133.100",
+        "Vancouver Terminal (Arrival Low Inner)"
+      ],
+      [
+        "128.175",
+        "Vancouver Terminal (Arrival Outer)"
+      ],
+      [
+        "126.125",
+        "Vancouver Terminal (Departure North)"
+      ],
+      [
+        "132.300",
+        "Vancouver Terminal (Departure South)"
+      ],
+      [
+        "125.200",
+        "Vancouver Terminal (TRSA)"
+      ]
+    ],
+    "cyvr2": [
+      [
+        "128.600",
+        "Vancouver Terminal (Arrival High Outer)"
+      ],
+      [
+        "133.100",
+        "Vancouver Terminal (Arrival Low Inner)"
+      ],
+      [
+        "126.125",
+        "Vancouver Terminal (Departure North)"
+      ],
+      [
+        "132.300",
+        "Vancouver Terminal (Departure South)"
+      ],
+      [
+        "120.500",
+        "Vancouver Terminal (ILS Monitor)"
+      ],
+      [
+        "128.175",
+        "Vancouver Terminal (ILS Monitor)"
+      ],
+      [
+        "125.200",
+        "Vancouver Terminal (TRSA)"
+      ]
+    ],
+    "cyvr1_gnd": [
+      [
+        "122.675",
+        "Emergency (Discrete)"
+      ],
+      [
+        "121.400",
+        "Vancouver Clearance Delivery"
+      ],
+      [
+        "121.700",
+        "Vancouver Ground (North)"
+      ],
+      [
+        "127.150",
+        "Vancouver Ground (South)"
+      ]
+    ]
+  }
 }

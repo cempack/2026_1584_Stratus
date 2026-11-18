@@ -7,5 +7,33 @@
   "lng": 65.3277,
   "order": [
     "ustr.pls"
-  ]
+  ],
+  "freqs": {
+    "ustr": [
+      [
+        "126.100",
+        "Tyumen Approach"
+      ],
+      [
+        "132.600",
+        "Tyumen Control"
+      ],
+      [
+        "133.600",
+        "Tyumen Control"
+      ],
+      [
+        "133.400",
+        "Tyumen Info (Regional)"
+      ],
+      [
+        "118.200",
+        "Tyumen Start"
+      ],
+      [
+        "131.800",
+        "Tyumen Transit"
+      ]
+    ]
+  }
 }

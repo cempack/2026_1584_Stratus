@@ -11,5 +11,37 @@
     "ksan_app_east.pls",
     "ksan1_gnd.pls",
     "ksan1_del.pls"
-  ]
+  ],
+  "freqs": {
+    "ksan1_twr": [
+      [
+        "118.300",
+        "Lindbergh Tower"
+      ]
+    ],
+    "ksan_app_delmar": [
+      [
+        "127.300",
+        "SoCal Approach (Del Mar Sector)"
+      ]
+    ],
+    "ksan_app_east": [
+      [
+        "124.350",
+        "SOCAL Approach/Departure (SAN East)"
+      ]
+    ],
+    "ksan1_gnd": [
+      [
+        "123.900",
+        "Lindbergh Ground"
+      ]
+    ],
+    "ksan1_del": [
+      [
+        "125.900",
+        "Lindbergh Clearance Delivery"
+      ]
+    ]
+  }
 }

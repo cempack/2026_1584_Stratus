@@ -11,5 +11,31 @@
     "kord1n2_gnd_out.pls",
     "kord1n2_app_133625.pls",
     "kord1n2_zau_cribb.pls"
-  ]
+  ],
+  "freqs": {
+    "kord1n2_app_133625": [
+      [
+        "133.625",
+        "Chicago Approach (W Arrival)"
+      ]
+    ],
+    "kord1n2_gnd_out": [
+      [
+        "121.750",
+        "O'Hare Ground (Outbound)"
+      ]
+    ],
+    "kord1n2_twr_ctr2": [
+      [
+        "120.750",
+        "O'Hare Tower (Center 10C-28C/4R-22L)"
+      ]
+    ],
+    "kord1n2_zau_cribb": [
+      [
+        "120.350",
+        "Chicago Center (Sector 81 CRIBB Low)"
+      ]
+    ]
+  }
 }

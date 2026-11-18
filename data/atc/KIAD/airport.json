@@ -11,5 +11,37 @@
     "kmrb1_kiad_n_arr.pls",
     "kiad1_app_final_west_134200.pls",
     "kiad2_dep_s.pls"
-  ]
+  ],
+  "freqs": {
+    "kiad1_twr_1l19r_134425": [
+      [
+        "134.425",
+        "Dulles Tower (1L/19R, 12/30)"
+      ]
+    ],
+    "kiad1_twr_1c19c_120250": [
+      [
+        "120.250",
+        "Dulles Tower (1C/19C)"
+      ]
+    ],
+    "kmrb1_kiad_n_arr": [
+      [
+        "133.000",
+        "Potomac Approach (BINNS, North Arrival High)"
+      ]
+    ],
+    "kiad1_app_final_west_134200": [
+      [
+        "134.200",
+        "Potomac Approach (Final West)"
+      ]
+    ],
+    "kiad2_dep_s": [
+      [
+        "126.650",
+        "Potomac Departure (KIAD South Dep ASPER)"
+      ]
+    ]
+  }
 }

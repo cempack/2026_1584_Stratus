@@ -11,5 +11,31 @@
     "cyyz1_gnd_north.pls",
     "cyyz1_gnd_south.pls",
     "cyyz1_app_124475.pls"
-  ]
+  ],
+  "freqs": {
+    "cyyz1_app_124475": [
+      [
+        "124.475",
+        "Toronto Terminal (Arrivals)"
+      ]
+    ],
+    "cyyz1_gnd_north": [
+      [
+        "121.650",
+        "Toronto Ground (North)"
+      ]
+    ],
+    "cyyz1_gnd_south": [
+      [
+        "121.900",
+        "Toronto Ground (South)"
+      ]
+    ],
+    "cyyz1_twr_north": [
+      [
+        "118.700",
+        "Toronto Tower (North)"
+      ]
+    ]
+  }
 }

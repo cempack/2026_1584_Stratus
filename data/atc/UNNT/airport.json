@@ -7,5 +7,41 @@
   "lng": 82.61867,
   "order": [
     "unnt.pls"
-  ]
+  ],
+  "freqs": {
+    "unnt": [
+      [
+        "128.500",
+        "ACC_Novosibirsk-Control"
+      ],
+      [
+        "126.100",
+        "ACC_Novosibirsk-Control [Southeast]"
+      ],
+      [
+        "127.000",
+        "ACC_Novosibirsk-Control [West]"
+      ],
+      [
+        "123.425",
+        "GPA_Kristallik [Severniy airfield]"
+      ],
+      [
+        "124.750",
+        "GPA_Sernisiy [Chkalovskiy airfield]"
+      ],
+      [
+        "134.500",
+        "GPA_Tomsk Information 1"
+      ],
+      [
+        "130.750",
+        "MIL_3 [3rd military channel]"
+      ],
+      [
+        "123.750",
+        "MIL_Larek [Shilovo facility]"
+      ]
+    ]
+  }
 }

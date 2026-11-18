@@ -7,5 +7,41 @@
   "lng": -70.7947,
   "order": [
     "scel.pls"
-  ]
+  ],
+  "freqs": {
+    "scel": [
+      [
+        "121.700",
+        "Santiago Authorizations"
+      ],
+      [
+        "128.100",
+        "Santiago Control (Lat 3323S North)"
+      ],
+      [
+        "126.300",
+        "Santiago Control (Lat 3323S South)"
+      ],
+      [
+        "122.200",
+        "Santiago Ground (Primary)"
+      ],
+      [
+        "122.500",
+        "Santiago Ground (Secondary)"
+      ],
+      [
+        "125.400",
+        "Santiago Radar"
+      ],
+      [
+        "135.400",
+        "Santiago Radar"
+      ],
+      [
+        "129.700",
+        "Santiago Radar (Arrival, Primary)"
+      ]
+    ]
+  }
 }

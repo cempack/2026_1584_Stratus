@@ -11,5 +11,41 @@
     "kbos1_app_fin1.pls",
     "kbos1_app_north.pls",
     "kbos1_dep_133000.pls"
-  ]
+  ],
+  "freqs": {
+    "kbos1_twr": [
+      [
+        "132.225",
+        "Boston Tower (East)"
+      ],
+      [
+        "128.800",
+        "Boston Tower (West)"
+      ]
+    ],
+    "kbos1_twr_132225": [
+      [
+        "132.225",
+        "Boston Tower (East)"
+      ]
+    ],
+    "kbos1_app_fin1": [
+      [
+        "126.500",
+        "Boston Approach (Final One)"
+      ]
+    ],
+    "kbos1_app_north": [
+      [
+        "118.250",
+        "Boston Approach (Rockport Sector, North)"
+      ]
+    ],
+    "kbos1_dep_133000": [
+      [
+        "133.000",
+        "Boston Initial Departure (ID)"
+      ]
+    ]
+  }
 }

@@ -9,5 +9,25 @@
     "korl_kmco_twr_west.pls",
     "korl_kmco_app_120150.pls",
     "korl_kmco_app_124800.pls"
-  ]
+  ],
+  "freqs": {
+    "korl_kmco_twr_west": [
+      [
+        "124.300",
+        "Orlando Tower (West/Rwys 18L-36R, 18R-36L)"
+      ]
+    ],
+    "korl_kmco_app_120150": [
+      [
+        "120.150",
+        "Orlando Departure (West)"
+      ]
+    ],
+    "korl_kmco_app_124800": [
+      [
+        "124.800",
+        "Orlando Approach"
+      ]
+    ]
+  }
 }

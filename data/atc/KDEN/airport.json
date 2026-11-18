@@ -11,5 +11,37 @@
     "kden1_app_fin1.pls",
     "kden1_app_fin2.pls",
     "kden1_zdv_128650.pls"
-  ]
+  ],
+  "freqs": {
+    "kden1_twr_west1": [
+      [
+        "135.300",
+        "Denver Tower (Rwy 16/34)"
+      ]
+    ],
+    "kden1_twr_east": [
+      [
+        "124.300",
+        "Denver Tower (East)"
+      ]
+    ],
+    "kden1_app_fin1": [
+      [
+        "123.850",
+        "Denver Approach (Final 1)"
+      ]
+    ],
+    "kden1_app_fin2": [
+      [
+        "120.800",
+        "Denver Approach (Final 2)"
+      ]
+    ],
+    "kden1_zdv_128650": [
+      [
+        "128.650",
+        "Denver Center"
+      ]
+    ]
+  }
 }

@@ -6,5 +6,43 @@
   "lat": 1.35019,
   "lng": 103.994003,
   "description": "Aéroport international de Singapour Changi.",
-  "order": ["wsss3.pls"]
+  "order": [
+    "wsss3.pls"
+  ],
+  "freqs": {
+    "wsss3": [
+      [
+        "118.450",
+        "Seletar Tower"
+      ],
+      [
+        "130.200",
+        "Seletar Tower"
+      ],
+      [
+        "129.700",
+        "Sembawabg Tower"
+      ],
+      [
+        "120.300",
+        "Singapore Approach/Departure (P)"
+      ],
+      [
+        "124.600",
+        "Singapore Approach/Departure (S)"
+      ],
+      [
+        "119.300",
+        "Singapore Arrival"
+      ],
+      [
+        "121.650",
+        "Singapore Clearance Delivery"
+      ],
+      [
+        "124.050",
+        "Singapore Radar"
+      ]
+    ]
+  }
 }

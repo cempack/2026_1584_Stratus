@@ -11,5 +11,31 @@
     "eham_del.pls",
     "eham_app_118080.pls",
     "eham_rdr_120555.pls"
-  ]
+  ],
+  "freqs": {
+    "eham_app_118080": [
+      [
+        "118.080",
+        "Schiphol Approach/Departure"
+      ]
+    ],
+    "eham_del": [
+      [
+        "121.980",
+        "Schiphol Clearance Delivery"
+      ]
+    ],
+    "eham_rdr_120555": [
+      [
+        "120.555",
+        "EHAA Radar Sector 1 ARTIP"
+      ]
+    ],
+    "eham_twr_18r36l": [
+      [
+        "118.280",
+        "Schiphol Tower (Rwy 18R/36L)"
+      ]
+    ]
+  }
 }

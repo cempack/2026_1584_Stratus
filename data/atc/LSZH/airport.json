@@ -11,5 +11,37 @@
     "lszh1_app_fin2.pls",
     "lszh1_dep.pls",
     "lszh1_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "lszh1_twr": [
+      [
+        "118.100",
+        "Zurich Tower"
+      ]
+    ],
+    "lszh1_app_east": [
+      [
+        "135.230",
+        "Zurich Approach (East)"
+      ]
+    ],
+    "lszh1_app_fin2": [
+      [
+        "125.330",
+        "Zurich Approach (Final)"
+      ]
+    ],
+    "lszh1_dep": [
+      [
+        "125.960",
+        "Zurich Departure"
+      ]
+    ],
+    "lszh1_gnd": [
+      [
+        "121.905",
+        "Zurich Ground"
+      ]
+    ]
+  }
 }

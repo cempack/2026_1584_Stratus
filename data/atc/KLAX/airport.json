@@ -11,5 +11,43 @@
     "klax4.pls",
     "klax4n_app_fin_n.pls",
     "kpoc2_klax_app_east_feeder.pls"
-  ]
+  ],
+  "freqs": {
+    "klax4": [
+      [
+        "119.800",
+        "Los Angeles Tower (South)"
+      ],
+      [
+        "120.950",
+        "Los Angeles Tower (South)"
+      ]
+    ],
+    "klax4n_app_fin_n": [
+      [
+        "128.500",
+        "SOCAL Approach (Stadium/North Final)"
+      ]
+    ],
+    "klax_twr": [
+      [
+        "133.900",
+        "Los Angeles Tower (North)"
+      ],
+      [
+        "119.800",
+        "Los Angeles Tower (South)"
+      ],
+      [
+        "120.950",
+        "Los Angeles Tower (South)"
+      ]
+    ],
+    "kpoc2_klax_app_east_feeder": [
+      [
+        "124.050",
+        "SOCAL Approach East LAX Arrival Feeder, 1000"
+      ]
+    ]
+  }
 }

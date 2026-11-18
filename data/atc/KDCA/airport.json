@@ -11,5 +11,49 @@
     "kmrb1_app_luray.pls",
     "kdca1_dep_121050.pls",
     "kdca1_dep.pls"
-  ]
+  ],
+  "freqs": {
+    "kdca1_twr": [
+      [
+        "119.100",
+        "Washington Tower"
+      ]
+    ],
+    "kdca": [
+      [
+        "121.500",
+        "Emergency/Guard"
+      ],
+      [
+        "124.700",
+        "KDCA Final Approach (West)"
+      ],
+      [
+        "119.100",
+        "Washington Tower"
+      ],
+      [
+        "134.350",
+        "Washington Tower (Helicopters)"
+      ]
+    ],
+    "kmrb1_app_luray": [
+      [
+        "118.675",
+        "Potomac Approach LURAY Sector (West)"
+      ]
+    ],
+    "kdca1_dep_121050": [
+      [
+        "121.050",
+        "Potomac Approach/Departure"
+      ]
+    ],
+    "kdca1_dep": [
+      [
+        "118.950",
+        "Potomac Departure (TYSON Sector)"
+      ]
+    ]
+  }
 }

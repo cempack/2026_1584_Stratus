@@ -11,5 +11,61 @@
     "kphx_app_s.pls",
     "kphx_app_sat.pls",
     "kphx_dep.pls"
-  ]
+  ],
+  "freqs": {
+    "kphx_twr_both": [
+      [
+        "120.900",
+        "Phoenix Tower (Rwy 07R/25L, 07L/25R)"
+      ],
+      [
+        "118.700",
+        "Phoenix Tower (Rwy 8/26)"
+      ]
+    ],
+    "kphx4_twr_em": [
+      [
+        "134.850",
+        "Phoenix Tower (Discrete/Emergency)"
+      ]
+    ],
+    "kphx_app_s": [
+      [
+        "128.650",
+        "Phoenix Approach (North Arrival)"
+      ],
+      [
+        "120.400",
+        "Phoenix Approach (Rwy 7R/L/25L/R Final)"
+      ],
+      [
+        "124.100",
+        "Phoenix Approach (South Arrival)"
+      ]
+    ],
+    "kphx_app_sat": [
+      [
+        "123.700",
+        "Phoenix Approach (East Tempe Sector)"
+      ],
+      [
+        "120.700",
+        "Phoenix Approach"
+      ],
+      [
+        "134.250",
+        "Phoenix Approach (West)"
+      ]
+    ],
+    "kphx_dep": [
+      [
+        "119.200",
+        "Phoenix Departure (North)"
+      ],
+      [
+        "126.800",
+        "Phoenix Departure (South)"
+      ]
+    ]
+  }
 }

@@ -11,5 +11,37 @@
     "lhbp_app_122980.pls",
     "lhbp_app_123860.pls",
     "lhbp_gnd_121905.pls"
-  ]
+  ],
+  "freqs": {
+    "lhbp_twr_118715": [
+      [
+        "118.715",
+        "Budapest Tower"
+      ]
+    ],
+    "lhbp_twr_119980": [
+      [
+        "119.980",
+        "Budapest Tower (Backup)"
+      ]
+    ],
+    "lhbp_app_122980": [
+      [
+        "122.980",
+        "Budapest Approach"
+      ]
+    ],
+    "lhbp_app_123860": [
+      [
+        "123.860",
+        "Budapest Approach (Upper)"
+      ]
+    ],
+    "lhbp_gnd_121905": [
+      [
+        "121.905",
+        "Budapest Ground"
+      ]
+    ]
+  }
 }

@@ -11,5 +11,49 @@
     "kpdx_app_118100.pls",
     "kpdx3_del_gnd.pls",
     "kpdx3_gnd.pls"
-  ]
+  ],
+  "freqs": {
+    "kpdx3_twr": [
+      [
+        "118.700",
+        "Portland Tower"
+      ],
+      [
+        "123.775",
+        "Portland Tower"
+      ],
+      [
+        "126.350",
+        "Portland Tower"
+      ]
+    ],
+    "kpdx_app_124350": [
+      [
+        "124.350",
+        "Portland Approach (280-099 deg)"
+      ]
+    ],
+    "kpdx_app_118100": [
+      [
+        "118.100",
+        "Portland Approach (South)"
+      ]
+    ],
+    "kpdx3_del_gnd": [
+      [
+        "120.125",
+        "Portland Clearance Delivery"
+      ],
+      [
+        "121.900",
+        "Portland Ground"
+      ]
+    ],
+    "kpdx3_gnd": [
+      [
+        "121.900",
+        "Portland Ground"
+      ]
+    ]
+  }
 }
