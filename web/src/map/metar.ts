@@ -14,7 +14,7 @@ export class MetarFeed {
   private ctl: AbortController | null = null;
 
   constructor(private map: maplibregl.Map, private onData: (s: Metar[]) => void) {
-    map.on("moveend", () => { if (this.enabled) this.schedule(700); });
+    map.on("moveend", (e) => { if (this.enabled && !(e as { stratusFollow?: boolean }).stratusFollow) this.schedule(700); });
   }
 
   set(on: boolean) {

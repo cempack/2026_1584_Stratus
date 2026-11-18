@@ -3,7 +3,7 @@
 // Picking is done against the positions that were last handed to the GPU, so what you click is what you see.
 import maplibregl from "maplibre-gl";
 import type { GeoJSONSource } from "maplibre-gl";
-import { type Track, greatCircle, renderPos, shapeOf, STALE_S, unwrap, type Shape } from "../lib/core";
+import { type Track, cleanTrail, greatCircle, renderPos, shapeOf, STALE_S, unwrap, type Shape } from "../lib/core";
 import { type Compiled, NO_FILTERS, compileFilters } from "../lib/filters";
 import { CATEGORY_COLOR, categoryOf } from "../lib/airport";
 import { serverNow, type Airport, type Metar, type Runway, type TrailPoint } from "../api";
@@ -90,8 +90,9 @@ export class PlaneLayer {
 
   constructor(private map: maplibregl.Map, private store: Map<string, Track>) {
     map.on("sourcedata", (e) => { if (e.sourceId === "planes" && e.isSourceLoaded) this.inflight = 0; });
-    map.on("moveend", () => (this.dirty = true));
-    map.on("zoomend", () => (this.dirty = true));
+    const user = (e: unknown) => !(e as { stratusFollow?: boolean })?.stratusFollow; // follow-mode moves are not "user moved"
+    map.on("moveend", (e) => { if (user(e)) this.dirty = true; });
+    map.on("zoomend", (e) => { if (user(e)) this.dirty = true; });
   }
 
   /** (Re)create images, sources and layers. Safe to call after every style load. */
@@ -228,7 +229,8 @@ export class PlaneLayer {
   }
 
   /** Trail + route endpoints from the latest detail response. `showRoute` is false when the route is unconfirmed. */
-  setDetail(trail: TrailPoint[], origin: Airport | null, dest: Airport | null, showRoute: boolean) {
+  setDetail(raw: TrailPoint[], origin: Airport | null, dest: Airport | null, showRoute: boolean) {
+    const trail = cleanTrail(raw); // no spikes, long gaps along the great circle
     const ll = unwrap(trail.map((p) => [p[1], p[0]] as Pt));
     this.trailPts = trail.map((p, i) => ({ c: ll[i], alt: p[2] ?? 0 }));
     this.dest = dest; this.showRoute = showRoute && !!origin && !!dest;
@@ -241,7 +243,7 @@ export class PlaneLayer {
     this.refreshOverlay(true);
   }
 
-  private head: { lat: number; lon: number; alt: number; est: boolean } | null = null;
+  private head: { lat: number; lon: number; alt: number; est: boolean; trk: number | null } | null = null;
   private refreshOverlay(force = false, t = performance.now()) {
     if (!force && t - this.lastOverlay < (this.moving() ? 600 : 300)) return;
     this.lastOverlay = t;
@@ -251,8 +253,24 @@ export class PlaneLayer {
       feats.push({ type: "Feature", geometry: { type: "LineString", coordinates: [pts[i - 1].c, pts[i].c] }, properties: { alt: (pts[i - 1].alt + pts[i].alt) / 2 } });
     }
     const h = this.head;
-    if (h && pts.length) {
-      const last = pts[pts.length - 1].c;
+    // While a correction is still blending, the last recorded point can lie just ahead of the drawn plane: joining it
+    // would hook the trail backwards. Points ahead of the plane (along its track) are left out of the drawing.
+    let end = pts.length;
+    if (h && h.trk != null) {
+      const sin = Math.sin((h.trk * Math.PI) / 180), cos = Math.cos((h.trk * Math.PI) / 180), k = Math.cos((h.lat * Math.PI) / 180);
+      while (end > 1) {
+        const p = pts[end - 1].c;
+        let dLon = p[0] - h.lon;
+        while (dLon > 180) dLon -= 360;
+        while (dLon < -180) dLon += 360;
+        const dx = dLon * k, dy = p[1] - h.lat;
+        if (Math.hypot(dx, dy) * 60 > 3 || dx * sin + dy * cos <= 0) break; // only the last few NM, only if ahead
+        end--;
+      }
+    }
+    for (let i = end; i < pts.length; i++) feats.pop();
+    if (h && end) {
+      const last = pts[end - 1].c;
       let lon = h.lon;
       while (lon - last[0] > 180) lon -= 360;
       while (lon - last[0] < -180) lon += 360;
@@ -272,7 +290,9 @@ export class PlaneLayer {
   markDirty() { this.dirty = true; }
 
   /** Camera in motion (drag, flyTo…): fleet updates are throttled so tile decoding gets the workers and the main thread. */
-  private moving() { return this.map.isMoving() || this.map.isEasing(); }
+  private moving() { return this.following || this.map.isMoving() || this.map.isEasing(); }
+  /** Follow mode: the camera moves every frame, so the fleet uses the in-motion (slower) refresh. */
+  following = false;
 
   private shapes = new Map<string, Shape>();
   private shapeFor(cat: string | null, type: string | null): Shape {
@@ -369,7 +389,7 @@ export class PlaneLayer {
     this.selMarker.setLngLat([lon, lat]).setRotation(this.selRot);
     if (t - this.lastSel >= 100) {
       this.lastSel = t;
-      this.head = { lat, lon, alt: tr.gnd ? 0 : tr.alt ?? 0, est: !!tr.est };
+      this.head = { lat, lon, alt: tr.gnd ? 0 : tr.alt ?? 0, est: !!tr.est, trk: tr.trk };
       this.refreshOverlay(false, t);
     }
   }

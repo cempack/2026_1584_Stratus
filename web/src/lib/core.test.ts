@@ -37,7 +37,8 @@ describe("merge by ts", () => {
     const t = store.get(base.hex)!;
     expect(t.ey).not.toBe(0);
     expect(renderPos(t, 1005)[0]).toBeCloseTo(48, 4); // starts where it was drawn
-    expect(renderPos(t, 1005 + EASE_S + 0.1)[0]).toBeCloseTo(48.01, 4); // fully eased after EASE_S
+    expect(t.easeDur!).toBeGreaterThanOrEqual(EASE_S); // longer for bigger corrections (speed-bounded)
+    expect(renderPos(t, 1005 + t.easeDur! + 0.1)[0]).toBeCloseTo(48.01, 4); // fully eased after its duration
   });
 });
 
@@ -97,5 +98,32 @@ describe("url", () => {
     expect(parseUrl("?ll=999,1", "#nope")).toEqual({ hex: null, apt: null, ll: null, z: null });
     expect(parseUrl("", "#/airport/lfpg").apt).toBe("LFPG");
     expect(formatUrl({ hex: null, apt: "LFPG", ll: null, z: null })).toBe("#/airport/LFPG");
+  });
+});
+
+describe("correction blending", () => {
+  // 450 kt airliner heading east (trk 90) at the equator: 1 NM = 1/60 deg
+  const nm = 1 / 60;
+  it("catches up at no more than 2x speed and slows down instead of reversing", async () => {
+    const { correctionDuration } = await import("./core");
+    const v = 450 / 3600;
+    const behind = correctionDuration(-1 * nm, 0, 0, 450, 90)!; // drawn 1 NM behind the truth
+    expect(behind).toBeGreaterThanOrEqual(1 / v);
+    const ahead = correctionDuration(1 * nm, 0, 0, 450, 90)!; // drawn 1 NM ahead (overshoot)
+    expect(v - 1 / ahead).toBeGreaterThanOrEqual(0.4 * v - 1e-9); // never below 40% speed, never backwards
+    expect(correctionDuration(0.001 * nm, 0, 0, 450, 90)).toBe(2.5); // tiny: shortest blend
+    expect(correctionDuration(-10 * nm, 0, 0, 450, 90)).toBeNull(); // a real gap: snap
+  });
+});
+
+describe("trail cleaning", () => {
+  it("drops out-and-back spikes and follows the great circle over long gaps", async () => {
+    const { cleanTrail } = await import("./core");
+    const t: [number, number, number | null, number][] = [[48, 2, 30000, 0], [48, 2.1, 30000, 10], [48.6, 2.15, 30000, 20], [48, 2.2, 30000, 30], [48, 2.3, 30000, 40]];
+    expect(cleanTrail(t).map((p) => p[1])).toEqual([2, 2.1, 2.2, 2.3]); // the 48.6 spike is gone
+    const ocean = cleanTrail([[50, -10, 36000, 0], [45, -50, 36000, 3600]]);
+    expect(ocean.length).toBeGreaterThan(10); // densified
+    const mid = ocean[Math.floor(ocean.length / 2)];
+    expect(mid[0]).toBeGreaterThan(48.5); // great circle bulges poleward, unlike a straight chord (~47.5)
   });
 });

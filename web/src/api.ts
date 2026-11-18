@@ -82,9 +82,32 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-let skew = 0; // server clock minus client clock (s); plane timestamps are server epoch seconds
-export const serverNow = () => Date.now() / 1000 + skew;
-const noteClock = (t: number) => { if (Number.isFinite(t)) skew = t - Date.now() / 1000; };
+// Server clock minus client clock (s); plane timestamps are server epoch seconds, so every dead-reckoned position
+// depends on it. A sample (server time in a response - client time on arrival) is the true skew minus the response's
+// travel time, which varies by up to ~1 s (the 500 KB snapshot). Taking each sample as is made every plane jump by
+// speed x jitter on each poll (~100-250 m for airliners), and the follow camera shook with it. So: the estimate is
+// the highest recent sample (the one that travelled fastest), and the clock in use slews toward it at <= 50 ms/s.
+const SKEW_WINDOW_MS = 120_000, SLEW_PER_S = 0.05;
+let skewSamples: [at: number, v: number][] = [];
+let skewTarget: number | null = null, skewBase = 0, skewBaseAt = 0;
+function skew(): number {
+  if (skewTarget == null) return 0;
+  const now = performance.now();
+  const max = (SLEW_PER_S * (now - skewBaseAt)) / 1000;
+  const d = skewTarget - skewBase;
+  return Math.abs(d) <= max ? skewTarget : skewBase + Math.sign(d) * max;
+}
+export const serverNow = () => Date.now() / 1000 + skew();
+const noteClock = (t: number) => {
+  if (!Number.isFinite(t)) return;
+  const now = performance.now();
+  const v = t - Date.now() / 1000;
+  skewSamples = skewSamples.filter(([at]) => now - at < SKEW_WINDOW_MS);
+  skewSamples.push([now, v]);
+  const best = Math.max(...skewSamples.map((x) => x[1]));
+  if (skewTarget == null) { skewTarget = skewBase = best; skewBaseAt = now; return; } // first sample: use it
+  skewBase = skew(); skewBaseAt = now; skewTarget = best; // continue from where the clock is now
+};
 
 declare global { interface Window { __boot?: { planes?: Promise<Response>; status?: Promise<Response> } } }
 /** The first request of each kind is started by an inline script in index.html, in parallel with the bundle and the style. */

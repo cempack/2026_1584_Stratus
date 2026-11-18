@@ -17,7 +17,7 @@ import { PlaneLayer } from "./map/planes";
 import { Radar } from "./map/radar";
 import { PLACE_KEY } from "./lib/daylight";
 import { aircraftInfo, weatherAt } from "./lib/direct";
-import { imageryTileSize, installImagery } from "./map/imagery";
+import { imageryTileSize, installImagery, prefetchImagery } from "./map/imagery";
 import { adaptQuality, initialPixelRatio } from "./map/quality";
 import { restyle } from "./map/restyle";
 import { type Theme, buildStyle } from "./map/style";
@@ -238,6 +238,11 @@ function flyToPoint(lat: number, lon: number, zoom: number) {
 // plane's *live* position (so it never lands behind it and snaps), then it stays locked on exactly the position the
 // marker is drawn at in that same frame.
 const FOLLOW_ENTRY_MS = 1300;
+const BEARING_DEADBAND = 5;
+/** Camera moves made by follow mode carry this: the "user moved the map" handlers (URL, area feed, prefetch…) skip them. */
+const FOLLOW_EVENT = { stratusFollow: true };
+const isFollowMove = (e: unknown) => !!(e as { stratusFollow?: boolean })?.stratusFollow;
+let fTarget = 0, lastPrefetch = 0;
 let fBearing = 0, lastFollowT = 0, needLevel = false;
 let entry: { t0: number; lat: number; lon: number; zoom: number; pitch: number; bearing: number } | null = null;
 // Zoom while following: MapLibre's own zoom animations are cancelled by the per-frame jumpTo, so wheel, pinch and the
@@ -248,12 +253,14 @@ const clampZoom = (z: number) => Math.max(3, Math.min(map.getMaxZoom(), z));
 function setFollow(on: boolean) {
   const was = follow;
   follow = on && !!selected && store.has(selected);
+  layer.following = follow;
   panel.setFollow(follow);
   winds.hold(follow);
   if (follow) {
     map.stop();
     const c = map.getCenter();
     fBearing = map.getBearing();
+    fTarget = store.get(selected!)?.trk ?? fBearing;
     lastFollowT = performance.now();
     fZoom = clampZoom(Math.max(map.getZoom(), 7));
     entry = reducedMotion() ? null : { t0: lastFollowT, lat: c.lat, lon: c.lng, zoom: map.getZoom(), pitch: map.getPitch(), bearing: fBearing };
@@ -267,7 +274,11 @@ const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").match
 layer.onSelectedMove = (lat, lon, trk) => {
   if (!follow) return;
   const now = performance.now(), dt = now - lastFollowT;
-  fBearing = lerpBearing(fBearing, trk ?? fBearing, smoothing(dt, 1400));
+  if (now - lastPrefetch > 3000) { lastPrefetch = now; prefetchImagery(); } // tiles ahead of the plane
+  // heading-up, but only for real heading changes: ADS-B track jitters by 1-2 degrees, and following that made the
+  // whole map wobble (and labels re-collide, i.e. blink). The target only moves past a dead-band, then eases in.
+  if (trk != null && Math.abs(((trk - fTarget + 540) % 360) - 180) > BEARING_DEADBAND) fTarget = trk;
+  fBearing = lerpBearing(fBearing, fTarget, smoothing(dt, 2200));
   lastFollowT = now;
   if (entry) {
     const k = easeOut(Math.min(1, (now - entry.t0) / FOLLOW_ENTRY_MS));
@@ -278,12 +289,12 @@ layer.onSelectedMove = (lat, lon, trk) => {
       zoom: entry.zoom + (fZoom - entry.zoom) * k,
       pitch: entry.pitch + (FOLLOW_PITCH - entry.pitch) * k,
       bearing: lerpBearing(entry.bearing, fBearing, k),
-    });
+    }, FOLLOW_EVENT);
     if (k >= 1) entry = null;
     return;
   }
   const z = map.getZoom();
-  map.jumpTo({ center: [lon, lat], bearing: fBearing, zoom: Math.abs(fZoom - z) < 0.001 ? z : z + (fZoom - z) * smoothing(dt, 140) });
+  map.jumpTo({ center: [lon, lat], bearing: fBearing, zoom: Math.abs(fZoom - z) < 0.001 ? z : z + (fZoom - z) * smoothing(dt, 140) }, FOLLOW_EVENT);
 };
 
 // Captured on the map's parent so MapLibre never sees them while following (its handlers would end follow / be cancelled).
@@ -313,9 +324,9 @@ layer.onSelectedMove = (lat, lon, trk) => {
 }
 map.on("movestart", (e) => {
   const type = (e as { originalEvent?: Event }).originalEvent?.type;
-  if (follow && endsFollow(type)) { follow = false; entry = null; needLevel = true; panel.setFollow(false); winds.hold(false); }
+  if (follow && endsFollow(type)) { follow = false; layer.following = false; entry = null; needLevel = true; panel.setFollow(false); winds.hold(false); }
 });
-map.on("moveend", () => { if (needLevel && !follow) { needLevel = false; levelCamera(); } });
+map.on("moveend", (e) => { if (!isFollowMove(e) && needLevel && !follow) { needLevel = false; levelCamera(); } });
 
 // ---------- flight card ----------
 const panel = new Panel({
@@ -368,7 +379,7 @@ function select(hex: string | null, push: boolean) {
   const wasFollowing = follow;
   if (hex && airportCode) closeAirport(false, false);
   selected = hex;
-  follow = false; entry = null; winds.hold(false);
+  follow = false; layer.following = false; entry = null; winds.hold(false);
   fullTrackShown = false;
   layer.setSelected(hex);
   if (hex) {
@@ -441,7 +452,8 @@ function syncUrl(push = false) {
   const u = location.pathname + formatUrl({ hex: selected, apt: airportCode, ll: [c.lat, c.lng], z: map.getZoom() });
   try { push ? history.pushState(null, "", u) : history.replaceState(null, "", u); } catch { /* sandboxed */ }
 }
-map.on("moveend", () => {
+map.on("moveend", (e) => {
+  if (isFollowMove(e)) return; // the follow camera moves every frame: the area feed keeps its own 5 s rhythm
   clearTimeout(urlTimer);
   urlTimer = setTimeout(() => syncUrl(false), 400);
   areaLoop.kick();

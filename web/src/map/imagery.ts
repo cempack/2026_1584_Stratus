@@ -40,6 +40,10 @@ function get(z: number, y: number, x: number, signal?: AbortSignal): Promise<Arr
 }
 
 let installed = false;
+let planNow: (() => void) | null = null;
+
+/** Prefetch around the current view now (follow mode calls this on its own beat: its moves skip the move handlers). */
+export const prefetchImagery = () => planNow?.();
 export function installImagery(map?: maplibregl.Map) {
   if (!installed) {
     installed = true;
@@ -84,7 +88,7 @@ function tilesFor(z: number, w: number, s: number, e: number, n: number, cx: num
 
 function watch(map: maplibregl.Map) {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const plan = () => {
+  const plan = (planNow = () => {
     if (!map.getLayer("sat") || map.getLayoutProperty("sat", "visibility") === "none") return;
     const zoom = map.getZoom();
     if (zoom < 3) return; // the globe view is a handful of tiles, already loaded
@@ -97,8 +101,9 @@ function watch(map: maplibregl.Map) {
     const ring = tilesFor(tz, w - dw, s - dh, e + dw, n + dh, c.lng, c.lat, PREFETCH_MAX * 2).filter(([, y, x]) => !cache.has(`${tz}/${y}/${x}`));
     queue = [...deeper, ...ring].slice(0, PREFETCH_MAX);
     pump();
-  };
-  map.on("movestart", () => { clearTimeout(timer); queue = []; });
+  });
+  const follow = (e: unknown) => !!(e as { stratusFollow?: boolean })?.stratusFollow; // follow camera: every frame
+  map.on("movestart", (e) => { if (follow(e)) return; clearTimeout(timer); queue = []; });
   // after the visible tiles had their turn
-  map.on("moveend", () => { clearTimeout(timer); timer = setTimeout(plan, 700); });
+  map.on("moveend", (e) => { if (follow(e)) return; clearTimeout(timer); timer = setTimeout(plan, 700); });
 }

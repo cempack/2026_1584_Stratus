@@ -11,7 +11,8 @@ export interface Plane {
 export interface Snapshot { v: number; t: number; fields: string[]; rows: unknown[][] }
 
 /** Live plane state: last fix + an easing offset so corrections glide instead of jumping. */
-export interface Track extends Plane { ex: number; ey: number; easeStart: number }
+/** A plane as drawn: the reckoned position plus a correction offset (ex, ey in degrees) fading out over `easeDur`. */
+export interface Track extends Plane { ex: number; ey: number; easeStart: number; easeDur?: number }
 
 export function decodeRows(s: Snapshot): Plane[] {
   const idx = (f: string) => s.fields.indexOf(f);
@@ -35,7 +36,10 @@ export function decodeRows(s: Snapshot): Plane[] {
 }
 
 export const MAX_DR_S = 90;
-export const EASE_S = 2.5; // long enough that a correction reads as a slight speed change, never a jump back
+export const EASE_S = 2.5; // shortest correction: reads as a slight speed change
+export const EASE_MAX_S = 20; // longest: beyond, the gap is real (data outage) and the plane snaps
+const FAST = 2; // a correction may never make the plane look faster than 2x its speed...
+const SLOW = 0.4; // ...nor, when it has to fall back, slower than 0.4x (it never moves backwards)
 export const STALE_S = 300;
 
 export const R_NM = 3440.065;
@@ -71,6 +75,49 @@ export function greatCircle(a: [number, number], b: [number, number], n = 64): [
   return unwrap(pts);
 }
 
+type TP = [lat: number, lon: number, alt: number | null, ts: number];
+const SPIKE_RATIO = 0.35; // out-and-back: the detour is more than ~3x the direct hop
+const GAP_NM = 60; // longer hops follow the great circle instead of a straight chord on screen
+
+/**
+ * Trail as it should be drawn: drops out-and-back spikes (a bad fix between two good ones: MLAT noise, a stale
+ * source), and densifies long gaps along the great circle. Points are [lat, lon, alt, ts]; returns new ones.
+ */
+export function cleanTrail(trail: TP[]): TP[] {
+  let pts = trail.filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+  for (let pass = 0; pass < 2; pass++) {
+    const keep: TP[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = keep[keep.length - 1], b = pts[i], c = pts[i + 1];
+      if (a && c) {
+        const ab = distanceNm([a[0], a[1]], [b[0], b[1]]), bc = distanceNm([b[0], b[1]], [c[0], c[1]]);
+        const ac = distanceNm([a[0], a[1]], [c[0], c[1]]);
+        if (ab > 0.5 && bc > 0.5 && ac < SPIKE_RATIO * (ab + bc)) continue; // b sticks out and comes back: drop it
+      }
+      keep.push(b);
+    }
+    pts = keep;
+  }
+  const out: TP[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const b = pts[i], a = pts[i - 1];
+    if (a) {
+      const d = distanceNm([a[0], a[1]], [b[0], b[1]]);
+      if (d > GAP_NM) {
+        const n = Math.min(64, Math.ceil(d / 30));
+        const gc = greatCircle([a[0], a[1]], [b[0], b[1]], n);
+        for (let k = 1; k < n; k++) {
+          const f = k / n;
+          const alt = a[2] != null && b[2] != null ? a[2] + (b[2] - a[2]) * f : b[2];
+          out.push([gc[k][1], gc[k][0], alt, a[3] + (b[3] - a[3]) * f]);
+        }
+      }
+    }
+    out.push(b);
+  }
+  return out;
+}
+
 export function unwrap(pts: [number, number][]): [number, number][] {
   for (let i = 1; i < pts.length; i++) {
     let lon = pts[i][0];
@@ -89,10 +136,31 @@ export function reckon(p: Plane, now: number): [number, number] {
   return destination(p.lat, p.lon, p.trk, (p.gs * dt) / 3600);
 }
 
-/** Render position = reckoned + easing offset that decays linearly over EASE_S. */
+/**
+ * How long to blend a correction (old drawn position - new reckoned one, in degrees), or null to snap.
+ * The drawn velocity during the blend is v - offset/duration, so the duration is chosen to keep it sane:
+ * - offset behind the plane (new data is ahead): the plane catches up at most FAST x its speed;
+ * - offset ahead of the plane (we extrapolated too far: it slowed down or turned): it slows to no less than
+ *   SLOW x its speed instead of reversing;
+ * - sideways part: blended over the same time. Too big to absorb within EASE_MAX_S: snap (a real gap).
+ */
+export function correctionDuration(dx: number, dy: number, lat: number, gsKt: number, trk: number | null): number | null {
+  const nmX = dx * 60 * Math.cos(lat * rad), nmY = dy * 60;
+  const dist = Math.hypot(nmX, nmY);
+  if (dist < 0.01) return EASE_S;
+  const v = gsKt / 3600; // NM/s
+  if (v < 0.02) return dist < 0.5 ? EASE_S : null; // slow or on the ground: only small nudges are blended
+  const along = trk == null ? 0 : nmX * Math.sin(trk * rad) + nmY * Math.cos(trk * rad); // > 0: drawn ahead of truth
+  // drawn speed = v - (offset along track)/dur: keep it within [SLOW v, FAST v]
+  const need = along > 0 ? along / ((1 - SLOW) * v) : dist / ((FAST - 1) * v);
+  const dur = Math.max(EASE_S, need);
+  return dur <= EASE_MAX_S ? dur : null;
+}
+
+/** Render position = reckoned + correction offset that decays linearly over the track's ease duration. */
 export function renderPos(t: Track, now: number): [number, number] {
   const [lat, lon] = reckon(t, now);
-  const k = Math.max(0, 1 - (now - t.easeStart) / EASE_S);
+  const k = Math.max(0, 1 - (now - t.easeStart) / (t.easeDur ?? EASE_S));
   return k > 0 ? [lat + t.ey * k, lon + t.ex * k] : [lat, lon];
 }
 
@@ -125,9 +193,9 @@ export function mergePlane(store: Map<string, Track>, p: Plane, now: number, eas
   let dx = oldLon - newLon;
   if (dx > 180) dx -= 360; else if (dx < -180) dx += 360;
   const dy = oldLat - newLat;
-  // Ease only small corrections; big jumps (gaps, teleports) snap.
-  if (ease && Math.abs(dy) < 0.5 && Math.abs(dx) < 0.5) { cur.ex = dx; cur.ey = dy; cur.easeStart = now; }
-  else { cur.ex = 0; cur.ey = 0; }
+  const dur = ease ? correctionDuration(dx, dy, newLat, cur.gnd ? 0 : cur.gs ?? 0, cur.trk) : null;
+  if (dur != null) { cur.ex = dx; cur.ey = dy; cur.easeStart = now; cur.easeDur = dur; }
+  else { cur.ex = 0; cur.ey = 0; cur.easeDur = EASE_S; }
   return true;
 }
 
