@@ -50,7 +50,7 @@ class Runtime:
         self.http = session or make_session()
         self.store = Store(clock)
         self.opensky = OpenSkyPoller(cfg, self.store, self.http, clock)
-        self.readsb = ReadsbFeed(self.store, self.http, clock=clock)
+        self.readsb = ReadsbFeed(self.store, self.http, clock=clock, adsblol_key=cfg.adsblol_key)
         self.airports = Airports(self.http, cfg.cache_dir, clock)
         self.fr24 = Fr24(cfg.fr24_token, cfg.fr24_daily_credits, self.http, self.airports,
                          cfg.cache_dir / "fr24-credits.json", clock)

@@ -49,6 +49,7 @@ class Config:
     data_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "data")
     web_dist: Path = field(default_factory=lambda: PROJECT_ROOT / "web" / "dist")
     port: int = 8090
+    adsblol_key: str = ""  # env ADSBLOL_API_KEY: adsb.lol's 1,000 requests/day key (500/day per IP without)
     fr24_token: str = ""  # env FR24_API_TOKEN; empty = FR24 disabled, nothing changes
     fr24_daily_credits: int = 900
     sweep_enabled: bool = True
@@ -80,6 +81,7 @@ class Config:
             opensky_daily_credits=_env_int("OPENSKY_DAILY_CREDITS", 4000),
             port=_env_int("PORT", 8090),
             fr24_token=os.environ.get("FR24_API_TOKEN", "").strip(),
+            adsblol_key=os.environ.get("ADSBLOL_API_KEY", "").strip(),
             fr24_daily_credits=_env_int("FR24_DAILY_CREDITS", 900),
             sweep_enabled=_env_bool("STRATUS_SWEEP", True),
             sweep_interval=_env_float("STRATUS_SWEEP_INTERVAL", 1.5),

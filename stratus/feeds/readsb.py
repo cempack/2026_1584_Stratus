@@ -22,10 +22,20 @@ MAX_INTERVAL_S = 4.0
 
 
 class Provider:
-    def __init__(self, name: str, point_url: str, hex_url: str):
+    """One readsb-style API. `daily_limit`: hard cap per UTC day (None = only the per-second pace applies);
+    a capped provider is a fallback, never used by the background sweep."""
+
+    def __init__(self, name: str, point_url: str, hex_url: str, headers: dict | None = None,
+                 daily_limit: int | None = None):
         self.name = name
         self.point_url = point_url
         self.hex_url = hex_url
+        self.headers = headers or {}
+        self.daily_limit = daily_limit
+        self.hourly_limit = None if daily_limit is None else max(1, daily_limit * 280 // 680)
+        self.day = ""
+        self.used = 0
+        self.hour: list[float] = []
         self.limiter = RateLimiter(BASE_INTERVAL_S)
         self.cooldown_until = 0.0
         self.state = "ok"
@@ -33,12 +43,33 @@ class Provider:
         self.last_error: str | None = None
 
     def status(self) -> dict:
-        return {"state": self.state, "last_ok": self.last_ok, "last_error": self.last_error,
-                "interval_s": round(self.limiter.min_interval, 2)}
+        out = {"state": self.state, "last_ok": self.last_ok, "last_error": self.last_error,
+               "interval_s": round(self.limiter.min_interval, 2)}
+        if self.daily_limit is not None:
+            out["today"] = {"used": self.used, "limit": self.daily_limit, "key": bool(self.headers)}
+        return out
 
-    def rate_limited(self, now: float) -> None:
-        """429: back off for a while and keep a slower pace afterwards."""
-        self.cooldown_until = now + RATE_LIMIT_COOLDOWN_S
+    def take(self) -> bool:
+        """Count one request against the daily cap; False when today's budget is spent."""
+        if self.daily_limit is None:
+            return True
+        now = time.time()
+        day = time.strftime("%Y-%m-%d", time.gmtime(now))
+        if day != self.day:
+            self.day, self.used = day, 0
+        self.hour = [t for t in self.hour if now - t < 3600]
+        if self.used >= self.daily_limit or len(self.hour) >= (self.hourly_limit or 0):
+            self.state, self.last_error = "budget", f"{self.used}/{self.daily_limit} today, {len(self.hour)}/{self.hourly_limit} this hour"
+            return False
+        self.used += 1
+        self.hour.append(now)
+        return True
+
+    def rate_limited(self, now: float, retry_after: float | None = None) -> None:
+        """429: back off for a while and keep a slower pace afterwards. A keyed (budgeted) provider backs off for
+        at least 15 min: repeated 429s can get a free adsb.lol key revoked."""
+        floor = 900.0 if self.daily_limit is not None else RATE_LIMIT_COOLDOWN_S
+        self.cooldown_until = now + max(floor, retry_after or 0)
         self.limiter.min_interval = min(MAX_INTERVAL_S, self.limiter.min_interval * 1.5)
         self.state, self.last_error = "rate_limited", "429"
 
@@ -47,11 +78,15 @@ class Provider:
         self.limiter.min_interval = max(BASE_INTERVAL_S, self.limiter.min_interval * 0.97)
 
 
-def default_providers() -> list[Provider]:
+def default_providers(adsblol_key: str = "") -> list[Provider]:
+    """adsb.fi first (per-second limit, no daily cap); adsb.lol as a budgeted fallback: 500 requests/day per IP
+    without a key; with the free key 20/30 s, 120/min, 300/h, 1,000/day, 5,000/week. We stay under all of them."""
     return [
-        Provider("adsb.lol", "https://api.adsb.lol/v2/point/{lat}/{lon}/{r}", "https://api.adsb.lol/v2/hex/{hex}"),
         Provider("adsb.fi", "https://opendata.adsb.fi/api/v2/lat/{lat}/lon/{lon}/dist/{r}",
                  "https://opendata.adsb.fi/api/v2/hex/{hex}"),
+        Provider("adsb.lol", "https://api.adsb.lol/v2/point/{lat}/{lon}/{r}", "https://api.adsb.lol/v2/hex/{hex}",
+                 headers={"x-api-key": adsblol_key} if adsblol_key else None,
+                 daily_limit=680 if adsblol_key else 450),  # key: 1,000/day but 5,000/week -> ~700/day
     ]
 
 
@@ -92,10 +127,11 @@ def parse_readsb(payload: dict, src: str) -> list[Obs]:
 
 
 class ReadsbFeed:
-    def __init__(self, store: Store, session, providers: list[Provider] | None = None, clock=time.time):
+    def __init__(self, store: Store, session, providers: list[Provider] | None = None, clock=time.time,
+                 adsblol_key: str = ""):
         self.store = store
         self.http = session
-        self.providers = providers or default_providers()
+        self.providers = providers or default_providers(adsblol_key)
         self.clock = clock
         self.flight = SingleFlight()
         self.hex_cache = TTLCache(5000)
@@ -106,13 +142,15 @@ class ReadsbFeed:
         # providers cooling down after a 429 go last instead of being hammered first
         now = self.clock()
         for prov in sorted(self.providers, key=lambda p: now < p.cooldown_until):
-            if not prov.limiter.acquire(MAX_QUEUE_WAIT_S):
+            if now < prov.cooldown_until and prov.daily_limit is not None:
+                continue  # a keyed provider is never retried while cooling down
+            if not prov.limiter.acquire(MAX_QUEUE_WAIT_S) or not prov.take():
                 continue
             url = (prov.point_url if kind == "point" else prov.hex_url).format(**fmt)
             try:
-                resp = self.http.get(url, timeout=(5, 10))
+                resp = self.http.get(url, timeout=(5, 10), **({"headers": prov.headers} if prov.headers else {}))
                 if resp.status_code == 429:
-                    prov.rate_limited(self.clock())
+                    prov.rate_limited(self.clock(), num(resp.headers.get("Retry-After")) if hasattr(resp, "headers") else None)
                     continue
                 resp.raise_for_status()
                 obs = parse_readsb(resp.json(), prov.name)
@@ -127,6 +165,8 @@ class ReadsbFeed:
         """One circle from one specific provider, for the background sweep. None when the provider is cooling
         down, busy serving viewers (rate-limit slot too far away) or failed; never raises."""
         now = self.clock()
+        if prov.daily_limit is not None:
+            return None  # capped providers are kept for viewers, never spent by the background sweep
         if now < prov.cooldown_until or not prov.limiter.acquire(max_wait):
             return None
         url = prov.point_url.format(lat=round(lat, 3), lon=round(lon, 3), r=int(r))

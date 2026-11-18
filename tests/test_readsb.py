@@ -86,7 +86,7 @@ def test_hex_refresh_is_cached_two_seconds_and_survives_errors(clock):
     feed.refresh_hex("123456")  # both down: no exception
 
 
-def test_rate_limited_provider_is_skipped_then_slowed(monkeypatch):
+def test_adsbfi_first_adsblol_budgeted_and_backs_off(monkeypatch):
     from stratus.feeds import readsb as rs
     from stratus.store import Store
 
@@ -95,24 +95,37 @@ def test_rate_limited_provider_is_skipped_then_slowed(monkeypatch):
     class Resp:
         def __init__(self, code):
             self.status_code = code
+            self.headers = {"Retry-After": "1200"} if code == 429 else {}
 
         def raise_for_status(self):
-            pass
+            if self.status_code >= 400:
+                raise RuntimeError(self.status_code)
 
         def json(self):
             return {"now": 0, "ac": []}
 
-    class Session:
-        def get(self, url, timeout=None):
-            calls.append(url)
-            return Resp(429 if "adsb.lol" in url else 200)
+    fi_down = {"v": True}
 
-    feed = rs.ReadsbFeed(Store(), Session())
+    class Session:
+        def get(self, url, timeout=None, headers=None):
+            calls.append((url, headers))
+            if "adsb.fi" in url:
+                return Resp(503 if fi_down["v"] else 200)
+            return Resp(429)
+
+    feed = rs.ReadsbFeed(Store(), Session(), adsblol_key="k")
     for p in feed.providers:
         p.limiter.acquire = lambda max_wait=0: True
-    assert feed._fetch("hex", hex="abc123") == []
-    lol = feed.providers[0]
-    assert lol.state == "rate_limited" and lol.limiter.min_interval > rs.BASE_INTERVAL_S
+    feed._fetch("hex", hex="abc123")
+    assert "adsb.fi" in calls[0][0]  # adsb.fi first
+    assert "adsb.lol" in calls[1][0] and calls[1][1] == {"x-api-key": "k"}  # then adsb.lol, with the key
+    lol = feed.providers[1]
+    assert lol.cooldown_until - lol.limiter._clock() > 0 or lol.state == "rate_limited"
     calls.clear()
     feed._fetch("hex", hex="abc124")
-    assert "adsb.fi" in calls[0]  # the cooling-down provider is no longer asked first
+    assert all("adsb.lol" not in u for u, _ in calls)  # cooling down after a 429: not asked at all
+    # the background sweep never spends the budgeted provider
+    assert feed.fetch_point_from(lol, 48, 2, 50) is None
+    lol.cooldown_until = 0
+    lol.used, lol.day = lol.daily_limit, __import__("time").strftime("%Y-%m-%d", __import__("time").gmtime())
+    assert lol.take() is False  # daily budget spent
