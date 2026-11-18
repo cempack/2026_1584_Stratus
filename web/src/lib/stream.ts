@@ -24,6 +24,7 @@ export class MseStream {
   private queue: Uint8Array[] = [];
   private sb?: SourceBuffer;
   private objectUrl: string;
+  private ms: MediaSource;
   private stopped = false;
   private synced = false;
   private lag = LIVE_LAG_S;
@@ -31,6 +32,7 @@ export class MseStream {
   /** `onEnd(error)` fires once when the stream ends (null = closed by the server) or fails; never after stop(). */
   constructor(private audio: HTMLAudioElement, private url: string, private onEnd: (error: string | null) => void) {
     const ms = new MSE!();
+    this.ms = ms;
     this.objectUrl = URL.createObjectURL(ms);
     // ManagedMediaSource (Safari) only streams when remote playback is disabled
     (audio as HTMLAudioElement & { disableRemotePlayback: boolean }).disableRemotePlayback = true;
@@ -61,6 +63,7 @@ export class MseStream {
   private pump() {
     const sb = this.sb, au = this.audio;
     if (!sb || sb.updating || this.stopped) return;
+    if (au.src !== this.objectUrl) { this.stop(); return; } // the element plays something else now: this stream is orphaned
     const b = sb.buffered;
     if (b.length) {
       const end = b.end(b.length - 1);
@@ -115,6 +118,7 @@ export class MseStream {
     this.stopped = true;
     this.abort.abort();
     this.queue = [];
+    try { if (this.ms.readyState === "open" && !this.sb?.updating) this.ms.endOfStream(); } catch { /* already detached */ }
     URL.revokeObjectURL(this.objectUrl);
   }
 }

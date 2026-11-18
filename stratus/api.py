@@ -152,7 +152,7 @@ def _bbox() -> tuple[float, float, float, float] | None:
     return s_, w, n, e
 
 
-def caption_prompt(rt, icao: str) -> dict:
+def caption_prompt(rt, icao: str, feed: dict | None = None) -> dict:
     """Subtitle context for one airport: a Whisper prompt (name, runways, nearby callsigns as spoken, phraseology) and,
     for the translator, the airport and the callsigns. The prompt starts like captions.PROMPT so echoes are caught."""
     a = rt.atc.by_icao.get(icao) or {}
@@ -162,6 +162,13 @@ def caption_prompt(rt, icao: str) -> dict:
         rwys += [x for x in (r.get("le_ident"), r.get("he_ident")) if x and not x.startswith("H")]
     if rwys:
         parts.append("Runways " + ", ".join(rwys[:8]) + ".")
+    facilities = []
+    for f in (feed or {}).get("freqs") or []:
+        name = re.sub(r"\s*[\[(].*$", "", re.sub(r"^[A-Z]{3}_", "", f["name"]).replace("_", " ")).strip()
+        if name and name not in facilities:
+            facilities.append(name)
+    if facilities:
+        parts.append("Stations: " + ", ".join(facilities[:5]) + ".")
     names: list[str] = []
     if a.get("lat") is not None and a.get("lon") is not None:
         rows = rt.store.area(a["lat"], a["lon"], 60)["rows"]
@@ -407,7 +414,7 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
             return _json({"error": "unknown airport or feed"}, 404)
 
         def events():
-            for ev in rt.captions.subscribe(feed["url"], lambda: caption_prompt(rt, icao)):
+            for ev in rt.captions.subscribe(feed["url"], lambda: caption_prompt(rt, icao, feed)):
                 yield ": ping\n\n" if ev.get("type") == "ping" else f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
 
         return Response(stream_with_context(events()), mimetype="text/event-stream",

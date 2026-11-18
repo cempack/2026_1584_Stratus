@@ -64,10 +64,19 @@ export function stripIcao(label: string, icao: string | null): string {
 /** Short chip texts for one airport's feeds: the French channel name, or the frequency / cleaned label when two channels share a kind. */
 export function chipLabels(icao: string, labels: string[], freqs: (Freq[] | undefined)[] = []): string[] {
   const kinds = labels.map((l) => feedKind(l));
-  return labels.map((l, i) => {
+  const first = labels.map((l, i) => {
     const dup = kinds.filter((k) => k.name === kinds[i].name).length > 1;
     if (!dup) return kinds[i].name;
-    return primaryFreq(l, freqs[i])?.mhz ?? (stripIcao(l, icao).replace(/\s*\(.*\)\s*$/, "") || kinds[i].name);
+    const mhz = primaryFreq(l, freqs[i])?.mhz;
+    return mhz ? `${kinds[i].name} ${mhz}` : (stripIcao(l, icao).replace(/\s*\(.*\)\s*$/, "") || kinds[i].name);
+  });
+  // still identical (two feeds of the same position): number them, "Tour", "Tour 2"
+  const seen = new Map<string, number>();
+  return first.map((t) => {
+    const n = (seen.get(t) ?? 0) + 1;
+    seen.set(t, n);
+    const total = first.filter((x) => x === t).length;
+    return total > 1 && n > 1 ? `${t.replace(/ \d{3}\.\d+$/, "")} ${n}` : total > 1 ? t.replace(/ \d{3}\.\d+$/, "") : t;
   });
 }
 

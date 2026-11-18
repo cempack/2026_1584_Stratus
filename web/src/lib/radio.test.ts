@@ -26,7 +26,11 @@ describe("channels", () => {
   it("strips the ICAO prefix and disambiguates duplicate kinds", () => {
     expect(stripIcao("EHAM Tower (Rwy 18R)", "EHAM")).toBe("Tower (Rwy 18R)");
     expect(chipLabels("KJFK", ["KJFK Tower 119.1", "KJFK Ground 121.9"])).toEqual(["Tour", "Sol"]);
-    expect(chipLabels("KJFK", ["KJFK Tower 119.1", "KJFK Tower 123.9"])).toEqual(["119.1", "123.9"]);
+    expect(chipLabels("KJFK", ["KJFK Tower 119.1", "KJFK Tower 123.9"])).toEqual(["Tour 119.1", "Tour 123.9"]);
+    const tw = [{ mhz: "135.200", name: "Midway Tower" }];
+    expect(chipLabels("KMDW", ["KMDW Tower #1", "KMDW Tower #2", "KMDW App 1", "KMDW App 2"],
+      [tw, tw, [{ mhz: "128.200", name: "Chicago Approach" }], [{ mhz: "119.350", name: "Chicago Approach" }]]))
+      .toEqual(["Tour", "Tour 2", "Approche 128.200", "Approche 119.350"]);
   });
 });
 

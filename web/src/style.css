@@ -387,12 +387,13 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 @keyframes cc-in { from { opacity: 0; transform: translateY(4px); } }
 /* mini-player: one card; with subtitles it grows a second row for the current call */
 .mini { position: relative; flex-wrap: wrap; height: auto !important; min-height: 46px; transition: border-radius 260ms var(--ease); }
-.mini:has(.mini-cc.show:not(:empty)) { border-radius: 18px; }
+.mini:has(.mini-cc.show:not(:empty)) { border-radius: 18px; width: min(420px, calc(100vw - 32px)); }
+.mini-cc:not(.show), .mini-cc:empty { display: none; }
 .mini-freq .dec, #mini-freq .dec { font-weight: 400; opacity: 0.6; }
 .mini-cc { order: 9; flex: 1 0 100%; width: 100%; max-width: 360px; margin: 0; padding: 0 14px; max-height: 0; opacity: 0; overflow: hidden;
   font-size: 13.5px; line-height: 19px; font-weight: 500; color: var(--ink); pointer-events: none;
   transition: max-height 300ms var(--ease), opacity 220ms var(--ease), padding 300ms var(--ease); }
-.mini-cc.show:not(:empty) { max-height: 96px; opacity: 1; padding: 0 14px 11px; }
+.mini-cc.show:not(:empty) { max-height: 96px; opacity: 1; padding: 0 14px 11px; animation: cc-in 260ms var(--ease) both; }
 .mini-cc::before { content: ""; display: block; height: 1px; margin: 0 0 8px; background: var(--line); }
 
 /* ---------- bottom zone ---------- */
