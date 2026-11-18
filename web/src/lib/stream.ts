@@ -64,7 +64,7 @@ export class MseStream {
     const b = sb.buffered;
     if (b.length) {
       const end = b.end(b.length - 1);
-      if (!this.synced || end - au.currentTime > MAX_LAG_S) {
+      if (!this.synced || end - au.currentTime > Math.max(MAX_LAG_S, this.lag + 4)) { // a chosen delay is not a stall
         // first data (the burst) or after a long stall: sit just behind the live edge
         const target = Math.max(b.start(0), end - this.lag);
         if (target > au.currentTime + 0.5 || !this.synced) au.currentTime = target;

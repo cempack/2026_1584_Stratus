@@ -29,7 +29,7 @@ def test_ignores_clicks_and_caps_long_carrier():
     out = sp.push(np.concatenate([silence(1), tone(0.1), silence(1.5)]), 0)
     assert out == []
     out = sp.push(tone(25), 0)
-    assert len(out) >= 1 and all(len(o[1]) / RATE <= 12.5 for o in out)  # capped; a steady carrier becomes "floor"
+    assert len(out) >= 1 and all(len(o[1]) / RATE <= 8.5 for o in out)  # capped; a steady carrier becomes "floor"
     assert len(out[0][1]) % FRAME == 0
 
 

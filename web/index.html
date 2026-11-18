@@ -15,8 +15,9 @@
       // with the bundle and the map style, instead of after them.
       // First paint only (the splash): the app resolves the theme exactly (sun position) before the map is built.
       try {
-        var m = localStorage.getItem("stratus.theme.mode") || "auto", h = new Date().getHours();
-        var dark = m === "dark" || (m === "system" && matchMedia("(prefers-color-scheme: dark)").matches) || (m === "auto" && (h < 7 || h >= 19));
+        // auto: the theme the app last computed from the sun (right unless dusk/dawn passed since), else a clock guess
+        var m = localStorage.getItem("stratus.theme.mode") || "auto", h = new Date().getHours(), last = localStorage.getItem("stratus.theme.resolved");
+        var dark = m === "dark" || (m === "system" && matchMedia("(prefers-color-scheme: dark)").matches) || (m === "auto" && (last ? last === "dark" : h < 7 || h >= 18));
         document.documentElement.dataset.theme = dark ? "dark" : "light";
       } catch (e) { document.documentElement.dataset.theme = "light"; }
       try {
@@ -73,9 +74,10 @@
               <div id="atc-label" class="lcd-label" hidden></div>
             </div>
             <section id="atc-cc" class="cc" hidden aria-live="polite" aria-label="Sous-titres">
-              <header class="cc-head"><span class="cc-title"><span data-icon="captions"></span>Sous-titres</span><span id="atc-cc-meta" class="cc-meta"></span></header>
+              <div class="cc-top"><span class="cc-live"><i></i>En direct</span><span id="atc-cc-meta" class="cc-meta"></span>
+                <span class="cc-ai" title="Transcription automatique (IA), traduite en anglais si la fréquence est dans une autre langue. Peut contenir des erreurs.">IA</span></div>
               <div id="atc-cc-lines" class="cc-lines"></div>
-              <div id="atc-cc-gloss" class="cc-gloss"></div>
+              <dl id="atc-cc-gloss" class="cc-gloss"></dl>
             </section>
 
             <div id="atc-feeds" class="feeds" role="radiogroup" aria-label="Fréquence"></div>

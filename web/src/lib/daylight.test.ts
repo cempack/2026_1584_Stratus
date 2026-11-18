@@ -5,7 +5,8 @@ const PARIS = { lat: 48.85, lon: 2.35 };
 
 describe("auto theme daylight", () => {
   it("guesses a place from the time zone", () => {
-    expect(guessPlace("Europe/Paris", -60)).toEqual({ lat: 48, lon: 15 });
+    expect(guessPlace("Europe/Paris", -60)).toEqual({ lat: 48.86, lon: 2.35 }); // the named city, not 15 deg/h
+    expect(guessPlace("Europe/Sofia", -120)).toEqual({ lat: 48, lon: 30 }); // unlisted: region + offset fallback
     expect(guessPlace("Australia/Sydney", -600).lat).toBeLessThan(0);
     expect(guessPlace(undefined, 300)).toEqual({ lat: 45, lon: -75 });
   });

@@ -49,8 +49,8 @@ const TERMS: [string, string][] = [
 const MATCHERS = TERMS.sort((a, b) => b[0].length - a[0].length)
   .map(([en, fr]) => ({ en, fr, re: new RegExp(`\\b${en.replace(/ /g, "[\\s,-]+")}\\b`, "i") }));
 
-/** The jargon in one call (at most `max`, in the order they appear), with its French meaning. */
-export function glossFor(text: string, max = 3): { term: string; meaning: string }[] {
+/** The jargon in one call (at most `max`, in the order they appear), with its French meaning and where it is. */
+export function glossFor(text: string, max = 3): { term: string; meaning: string; at: number; end: number }[] {
   const found: { term: string; meaning: string; at: number; end: number }[] = [];
   for (const m of MATCHERS) {
     const hit = m.re.exec(text);
@@ -59,5 +59,5 @@ export function glossFor(text: string, max = 3): { term: string; meaning: string
     if (found.some((f) => at < f.end && end > f.at)) continue; // inside a longer phrase already found
     found.push({ term: m.en, meaning: m.fr, at, end });
   }
-  return found.sort((a, b) => a.at - b.at).slice(0, max).map(({ term, meaning }) => ({ term, meaning }));
+  return found.sort((a, b) => a.at - b.at).slice(0, max);
 }

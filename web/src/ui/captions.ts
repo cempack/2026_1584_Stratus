@@ -6,14 +6,16 @@
 // - The card says what it is (AI, translated to English, may be wrong), shows the current call large with the
 //   previous ones fading, and explains the jargon of the current call in French (lib/glossary).
 // - The mini-player shows the current call as a bubble.
-import { atcCaptionsUrl } from "../api";
+import { atcCaptionsUrl, serverNow } from "../api";
+import { CAPTION_LAG_S } from "../lib/stream";
 import { glossFor } from "../lib/glossary";
 
 interface Caption { id: number; t: number; dur: number; text: string; lang: string }
 type State = "off" | "loading" | "waiting" | "live" | "error" | "quota";
 
 const KEY = "stratus.atc.cc";
-const KEEP = 3;
+const KEEP = 2; // the current call and the one before: more reads as a wall of text
+const LAG_MAX_S = 16;
 const MINI_SHOW_MS = 12_000;
 const LATE_S = 12; // a caption whose call should have been heard this long ago is shown anyway
 
@@ -29,6 +31,8 @@ export interface CaptionHooks {
   clock(): number | null;
   /** Subtitles were switched on/off: the player changes its distance to live accordingly. */
   onToggle(on: boolean): void;
+  /** The audio should play this far behind live (s) so captions are ready when their call is heard. */
+  onLag(seconds: number): void;
 }
 
 export class Captions {
@@ -44,6 +48,9 @@ export class Captions {
   private retry: ReturnType<typeof setTimeout> | undefined;
   private ticker: ReturnType<typeof setInterval> | undefined;
   private want: { icao: string; feed: string } | null = null;
+  /** Seconds between a call starting (server time) and its caption arriving: how far behind live to play. */
+  private delays: number[] = [];
+  lag = CAPTION_LAG_S;
 
   constructor(private hooks: CaptionHooks) {
     $("atc-cc-btn").addEventListener("click", () => {
@@ -89,6 +96,7 @@ export class Captions {
       } else if (ev.type === "caption" && ev.text && ev.id != null) {
         if (this.lines.some((l) => l.id === ev.id) || this.pending.some((l) => l.id === ev.id)) return;
         if (ev.lang) this.lang = ev.lang;
+        this.learnDelay(serverNow() - (ev.t as number));
         this.pending.push(ev as Caption);
         this.reveal();
       }
@@ -96,6 +104,19 @@ export class Captions {
     es.onerror = () => { if (es.readyState === EventSource.CLOSED) this.reopen(); };
     clearInterval(this.ticker);
     this.ticker = setInterval(() => this.reveal(), 200);
+  }
+
+  /**
+   * Adaptive delay: play just far enough behind live that ~80% of captions are ready before their call is heard
+   * (translated feeds and long calls need more). It only grows during a session: shrinking would skip audio.
+   */
+  private learnDelay(d: number) {
+    if (!Number.isFinite(d) || d < 0 || d > 60) return;
+    this.delays = [...this.delays, d].slice(-12);
+    if (this.delays.length < 2) return;
+    const sorted = [...this.delays].sort((a, b) => a - b);
+    const want = Math.min(LAG_MAX_S, Math.max(CAPTION_LAG_S, sorted[Math.floor(sorted.length * 0.8)] + 0.8));
+    if (want > this.lag + 0.75) { this.lag = want; this.hooks.onLag(want); }
   }
 
   /** Move captions whose call has started playing (or is late) from pending to the screen. */
@@ -138,21 +159,29 @@ export class Captions {
     const box = $("atc-cc");
     box.hidden = !(this.on && this.want);
     const foreign = this.lang && this.lang !== "en" ? (LANG[this.lang] ?? this.lang.toUpperCase()) : null;
-    $("atc-cc-meta").textContent = this.state === "quota"
-      ? "Quota gratuit du jour atteint : modèle local, moins précis"
-      : foreign ? `${foreign} → anglais · IA, peut se tromper` : "Transcription IA · traduite en anglais si besoin";
+    $("atc-cc-meta").textContent = this.state === "quota" ? "Quota du jour atteint · modèle réduit"
+      : foreign ? `${foreign} → anglais` : "Anglais";
     const msg = this.state === "loading" ? "Connexion aux sous-titres…"
       : this.state === "error" ? "Sous-titres indisponibles pour le moment"
       : !this.lines.length ? "En attente du prochain message radio…" : "";
-    const linesEl = $("atc-cc-lines");
-    linesEl.replaceChildren(...(msg ? [el("p", "cc-wait", msg)] : this.lines.map((l, i) => el("p", i === this.lines.length - 1 ? "cc-line now" : "cc-line", l.text))));
     const last = this.lines[this.lines.length - 1];
     const gloss = last && !msg ? glossFor(last.text) : [];
-    $("atc-cc-gloss").replaceChildren(...gloss.map((g) => {
-      const d = el("span", "cc-term");
-      d.append(el("b", "", g.term), document.createTextNode(` ${g.meaning}`));
-      return d;
-    }));
+    const linesEl = $("atc-cc-lines");
+    if (msg) linesEl.replaceChildren(el("p", "cc-wait", msg));
+    else {
+      const prev = this.lines.length > 1 ? [el("p", "cc-prev", this.lines[0].text)] : [];
+      // the current call, with its jargon marked in place (meanings listed underneath)
+      const now = el("p", "cc-now");
+      let i = 0;
+      for (const g of gloss) {
+        if (g.at > i) now.append(document.createTextNode(last.text.slice(i, g.at)));
+        now.append(el("mark", "cc-j", last.text.slice(g.at, g.end)));
+        i = g.end;
+      }
+      now.append(document.createTextNode(last.text.slice(i)));
+      linesEl.replaceChildren(...prev, now);
+    }
+    $("atc-cc-gloss").replaceChildren(...gloss.flatMap((g) => [el("dt", "", g.term), el("dd", "", g.meaning)]));
     $("mini-cc").textContent = last && this.on ? last.text : "";
     if (!last || !this.on) $("mini-cc").classList.remove("show");
   }

@@ -23,6 +23,8 @@ export const currentTheme = (): Theme => (document.documentElement.dataset.theme
 
 function setRoot(t: Theme) {
   document.documentElement.dataset.theme = t;
+  // the splash (index.html) reuses this, so a reload never flashes the other theme before this module runs
+  try { localStorage.setItem("stratus.theme.resolved", t); } catch { /* private mode */ }
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#070a11" : "#eef1f6");
 }
 

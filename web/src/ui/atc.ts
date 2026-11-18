@@ -9,7 +9,7 @@
 // next feed of the same airport before offering a retry button.
 import { type AtcAirport, type AtcFeed, atcAudioUrl, fetchAtc, serverNow } from "../api";
 import { Captions } from "./captions";
-import { CAPTION_LAG_S, LIVE_LAG_S, MseStream, mseSupported } from "../lib/stream";
+import { LIVE_LAG_S, MseStream, mseSupported } from "../lib/stream";
 import { norm } from "../lib/core";
 import { KIND_ICON, Meter, chipLabels, feedKind, primaryFreq } from "../lib/radio";
 import { icon } from "./icons";
@@ -75,7 +75,8 @@ export class Atc {
   private cc = new Captions({
     // what is being heard right now, in server time: the live edge minus how far behind playback is
     clock: () => { const b = this.mse?.behind; return b == null ? null : serverNow() - b; },
-    onToggle: (on) => this.mse?.setLag(on ? CAPTION_LAG_S : LIVE_LAG_S),
+    onToggle: (on) => this.mse?.setLag(on ? this.cc.lag : LIVE_LAG_S),
+    onLag: (s) => { if (this.cc.on) this.mse?.setLag(s); },
   });
 
   constructor(private hooks: AtcHooks) {
@@ -252,7 +253,7 @@ export class Atc {
     // MSE starts on the first frames; a plain src makes the browser wait for a large buffer (slow at 8-32 kbps)
     if (mseSupported()) {
       this.mse = new MseStream(au, url, (err) => (err ? this.fail(my, "network") : this.streamEnded(my)));
-      this.mse.setLag(this.cc.on ? CAPTION_LAG_S : LIVE_LAG_S); // subtitles on: further behind live, so captions are ready in time
+      this.mse.setLag(this.cc.on ? this.cc.lag : LIVE_LAG_S); // subtitles on: further behind live, so captions are ready in time
     }
     else au.src = url;
     this.internalPause = false;
