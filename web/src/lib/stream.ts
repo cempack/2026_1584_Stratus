@@ -95,11 +95,30 @@ export class MseStream {
     }
   }
 
-  /** Change the distance to the live edge (s) while playing: jumps there inside what is already buffered. */
+  /**
+   * Target distance to the live edge (s). Before anything is heard, the first sync jumps straight there. Once audio
+   * is playing it is NEVER reached by jumping (a jump back replays seconds of audio): adjust() eases into it.
+   */
   setLag(seconds: number) {
+    const shrink = this.synced && seconds < this.lag - 3;
     this.lag = seconds;
+    // much less delay wanted (subtitles switched off): jump forward, which skips audio but never repeats it
     const b = this.sb?.buffered;
-    if (b?.length) this.audio.currentTime = Math.max(b.start(0), b.end(b.length - 1) - seconds);
+    if (shrink && b?.length) this.audio.currentTime = Math.max(this.audio.currentTime, b.end(b.length - 1) - seconds);
+  }
+
+  /**
+   * Called a few times a second: steer the playback rate toward the target delay. More delay is gained mostly in the
+   * silences between calls (0.8x on silence is inaudible), barely during speech (0.95x, pitch preserved); too far
+   * behind, catch up at 1.06x.
+   */
+  adjust(quiet: boolean) {
+    const behind = this.behind;
+    if (behind == null || !this.synced) return;
+    const err = this.lag - behind;
+    const rate = err > 0.25 ? (quiet ? 0.8 : 0.95) : err < -2 ? 1.06 : 1;
+    const au = this.audio as HTMLAudioElement & { preservesPitch?: boolean };
+    if (au.playbackRate !== rate) { au.preservesPitch = true; au.playbackRate = rate; }
   }
 
   /** How far behind the live edge playback is right now (s); null before data arrives. */

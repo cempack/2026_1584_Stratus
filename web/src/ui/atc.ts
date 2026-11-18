@@ -72,6 +72,7 @@ export class Atc {
   private raf = 0;
   private meter = new Meter();
   private rx = false;
+  private lastSteer = 0;
   private litSegments = -1;
   private cc = new Captions({
     // what is being heard right now, in server time: the live edge minus how far behind playback is
@@ -480,6 +481,7 @@ export class Atc {
         level = this.meter.push(Math.sqrt(sum / this.wave.length), t);
         this.setRx(this.meter.open);
       }
+      if (t - this.lastSteer >= 250) { this.lastSteer = t; this.mse?.adjust(!this.rx); } // ease into the target delay
       this.hist.push(level); this.hist.shift();
       this.paintLevel(level);
       this.draw();

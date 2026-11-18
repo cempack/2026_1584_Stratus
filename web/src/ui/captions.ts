@@ -18,6 +18,9 @@ const KEEP = 2; // the current call and the one before: more reads as a wall of 
 const LAG_MAX_S = 25; // Workers AI takes ~7 s a call (more when translating): up to 25 s keeps lines in sync
 const MINI_SHOW_MS = 12_000;
 const LATE_S = 12; // a caption whose call should have been heard this long ago is shown anyway
+// The clock says what is at the client's buffered edge minus playback delay, but captions are stamped when the server
+// received the audio, which reaches the browser ~0.5-1 s later: without this, lines appeared about a second early.
+const TRANSIT_S = 0.8;
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 const get = () => { try { return localStorage.getItem(KEY) === "1"; } catch { return false; } };
@@ -123,7 +126,7 @@ export class Captions {
   private reveal() {
     if (!this.pending.length) return;
     const heard = this.hooks.clock();
-    const due = this.pending.filter((c) => heard == null || c.t <= heard + 0.2 || (heard - c.t) > LATE_S || Date.now() / 1000 - c.t > 30);
+    const due = this.pending.filter((c) => heard == null || c.t + TRANSIT_S <= heard || (heard - c.t) > LATE_S || Date.now() / 1000 - c.t > 30);
     if (!due.length) return;
     this.pending = this.pending.filter((c) => !due.includes(c));
     // calls are transcribed in parallel and may finish out of order: keep them in call order
