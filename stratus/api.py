@@ -16,7 +16,7 @@ from . import board
 from .airports import Airports
 from .atc import AUDIO_HEADERS, AtcCatalog
 from .captions import CaptionHub
-from .contrib import CONTRIB_TTL, MAX_ITEMS, RateGate, clean_aircraft, clean_weather, is_hex
+from .contrib import CONTRIB_TTL, MAX_ITEMS, MISS_TTL, RateGate, clean_aircraft, clean_weather, is_hex
 from .audiohub import AudioHub, Unavailable
 from .config import Config
 from .enrich import Enricher, observed_departure, reconcile_route
@@ -217,6 +217,7 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
         departed = observed_departure(trail, rt.airports.nearest) if rt.airports.list else None
         route = reconcile_route(route, departed, fix_lat, fix_lon, plane["gnd"])
         return _json({"plane": plane, "trail": trail, "aircraft": aircraft, "route": route,
+                      "aircraft_known": aircraft is not None or rt.enrich.cache.has(("aircraft", hx)),
                       "photo": photo, "estimated_since": est_since, "fr24": rt.fr24.budget(),
                       "full_track": rt.fr24.full_track_capability()})
 
@@ -340,10 +341,12 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
         took = {"aircraft": 0, "weather": 0}
         for item in (planes + wx)[:allowed]:
             if "hex" in item:
-                hx, data = is_hex(item.get("hex")), clean_aircraft(item.get("data"))
+                hx = is_hex(item.get("hex"))
+                miss = item.get("miss") is True and item.get("data") is None  # adsbdb answered 404
+                data = None if miss else clean_aircraft(item.get("data"))
                 with rt.store.lock:
                     tracked = hx is not None and rt.store.get(hx) is not None
-                if tracked and data and rt.enrich.contribute_aircraft(hx, data, CONTRIB_TTL):
+                if tracked and (data or miss) and rt.enrich.contribute_aircraft(hx, data, MISS_TTL if miss else CONTRIB_TTL):
                     took["aircraft"] += 1
             else:
                 lat, lon, data = num(item.get("lat")), num(item.get("lon")), clean_weather(item.get("data"))

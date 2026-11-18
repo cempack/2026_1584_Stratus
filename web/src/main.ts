@@ -186,11 +186,11 @@ const areaLoop = new Loop(async () => {
 const detailLoop = new Loop(async () => {
   const hex = selected;
   if (!hex) return;
-  // registry from the browser (started on select, cached), the rest from the server without its adsbdb lookup
-  const ac = aircraftInfo(hex);
+  // the server answers without its adsbdb lookup; the browser asks adsbdb only if nobody has the answer yet
+  // (the result, a record or a 404, is shared back: the next visitor gets it from the server)
   const d = await fetchAircraft(hex, true);
   if (hex !== selected) return;
-  if (d && !d.aircraft) d.aircraft = await Promise.race([ac, new Promise<null>((ok) => setTimeout(() => ok(null), 1200))]);
+  if (d && !d.aircraft && !d.aircraft_known) d.aircraft = await Promise.race([aircraftInfo(hex), new Promise<null>((ok) => setTimeout(() => ok(null), 1200))]);
   if (hex !== selected) return;
   if (!d) {
     if (!store.has(hex)) { toast("Avion introuvable"); select(null, true); }
@@ -373,7 +373,6 @@ function select(hex: string | null, push: boolean) {
   layer.setSelected(hex);
   if (hex) {
     panel.show(store.get(hex), hex);
-    void aircraftInfo(hex); // start the registry lookup now, in parallel with the server detail
     detailLoop.kick(); weatherLoop.kick();
   } else {
     panel.hide();

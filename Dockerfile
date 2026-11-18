@@ -26,4 +26,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/api/status', timeout=4)"
 
 # One worker: the feed pollers live in-process. Threads serve concurrent requests.
-CMD ["sh", "-c", "exec gunicorn -w 1 --threads 16 -b 0.0.0.0:${PORT} --timeout 60 --access-logfile - 'stratus.api:create_app()'"]
+# --keep-alive 120: idle connections must outlive the reverse proxy's (Traefik: 90 s). With gunicorn's default 2 s, the
+# proxy sometimes reused a connection gunicorn had just closed: GETs were retried silently, POSTs came back as 502.
+CMD ["sh", "-c", "exec gunicorn -w 1 --threads 16 --keep-alive 120 -b 0.0.0.0:${PORT} --timeout 60 --access-logfile - 'stratus.api:create_app()'"]

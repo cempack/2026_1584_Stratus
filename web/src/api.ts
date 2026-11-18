@@ -22,6 +22,8 @@ export interface Detail {
   estimated_since?: number | null;
   trail: TrailPoint[]; aircraft: Aircraft | null; route: Route | null; photo: Photo | null;
   fr24?: Fr24Info | null; full_track?: FullTrackInfo | null;
+  /** The server already has the registry answer (data, or "adsbdb has no record"): no need to ask adsbdb. */
+  aircraft_known?: boolean;
 }
 export interface Feed { state: string; mode?: string; last_ok: number | null; next_poll?: number | null; interval?: number; credits_remaining?: number | null; credits_daily?: number | null; last_error: string | null }
 export interface Status {

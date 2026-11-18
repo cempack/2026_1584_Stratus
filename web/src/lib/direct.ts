@@ -8,7 +8,7 @@ import type { Aircraft, Weather } from "../api";
 
 // ---------- sharing: what this browser fetched goes back to the server cache, for every other visitor ----------
 // (the server validates it, only fills gaps and rate-limits per IP: stratus/contrib.py)
-type Contribution = { aircraft: { hex: string; data: Aircraft }[]; weather: { lat: number; lon: number; data: Weather }[] };
+type Contribution = { aircraft: { hex: string; data: Aircraft | null; miss?: true }[]; weather: { lat: number; lon: number; data: Weather }[] };
 let outbox: Contribution = { aircraft: [], weather: [] };
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -21,7 +21,9 @@ function flush() {
   if (!outbox.aircraft.length && !outbox.weather.length) return;
   const body = JSON.stringify({ aircraft: outbox.aircraft.slice(0, 20), weather: outbox.weather.slice(0, 20) });
   outbox = { aircraft: [], weather: [] };
-  void fetch("/api/contribute", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => undefined);
+  const send = () => fetch("/api/contribute", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true });
+  // one retry: a POST hitting a proxy hiccup is not replayed by the proxy itself
+  void send().then((r) => (r.status >= 500 ? new Promise((ok) => setTimeout(ok, 1500)).then(send) : r)).catch(() => undefined);
 }
 if (typeof addEventListener === "function") addEventListener("pagehide", flush); // absent in tests (node)
 
@@ -86,7 +88,8 @@ export function aircraftInfo(hex: string): Promise<Aircraft | null> {
   if (!p) {
     p = fetch(`https://api.adsbdb.com/v0/aircraft/${encodeURIComponent(key)}`)
       .then(async (r) => (r.status === 404 ? null : r.ok ? parseAdsbdbAircraft(await r.json()) : Promise.reject(new Error(`adsbdb ${r.status}`))))
-      .then((ac) => { if (ac) share("aircraft", { hex: key, data: ac }); return ac; })
+      // network failures reject before this point, so only a real answer (a record or a 404) is shared
+      .then((ac) => { share("aircraft", ac ? { hex: key, data: ac } : { hex: key, data: null, miss: true }); return ac; })
       .catch(() => { acCache.delete(key); return null; });
     acCache.set(key, p);
   }

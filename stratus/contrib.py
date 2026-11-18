@@ -18,6 +18,7 @@ import time
 from .util import norm_hex, num
 
 CONTRIB_TTL = 6 * 3600
+MISS_TTL = 3600  # "adsbdb has no record": short, so a false claim can only hide registry data briefly
 MAX_ITEMS = 20
 TYPE_CODE = re.compile(r"^[A-Z0-9]{2,4}$")
 REG = re.compile(r"^[A-Z0-9][A-Z0-9-]{1,9}$")

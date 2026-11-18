@@ -104,7 +104,7 @@ def test_aircraft_detail_fills_in_background(client):
     assert client.get("/api/aircraft/abcdef").status_code == 404  # unknown to the store and to adsb.lol
     rt = seed(client, hex="3c6444", lat=48.2, lon=4.0, cs="DLH4AB", ts=NOW - 30)
     d = client.get("/api/aircraft/3c6444").get_json()
-    assert set(d) == {"plane", "trail", "aircraft", "route", "photo", "estimated_since", "fr24", "full_track"}
+    assert set(d) == {"plane", "trail", "aircraft", "aircraft_known", "route", "photo", "estimated_since", "fr24", "full_track"}
     assert d["plane"]["src"] == "adsb.lol" and d["plane"]["pos_type"] == "adsb_icao"
     assert d["trail"] and len(d["trail"][0]) == 4
     deadline = time.time() + 5
