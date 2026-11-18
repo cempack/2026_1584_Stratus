@@ -45,3 +45,21 @@ def test_plausibility_filter():
 def test_stutter_collapse():
     assert _STUTTER.sub(r"\1", "contact departure, fly, fly, fly, fly, fly") == "contact departure, fly"
     assert _STUTTER.sub(r"\1", "takeoff, takeoff") == "takeoff, takeoff"  # a read-back repeat is kept
+
+
+def test_daily_budget_caps_and_persists(tmp_path):
+    from stratus.captions import DailyBudget
+    b = DailyBudget(tmp_path / "b.json", 60)
+    assert b.left() == 60
+    b.spend(45)
+    assert DailyBudget(tmp_path / "b.json", 60).left() == 15  # survives a restart
+    b.spend(20)
+    assert b.left() == 0
+
+
+def test_spoken_callsigns():
+    from stratus.telephony import spoken
+    assert spoken("DAL2775") == "Delta 2775"
+    assert spoken("BAW12A") == "Speedbird 12A"
+    assert spoken("N412AB") == "N412AB"
+    assert spoken("") is None

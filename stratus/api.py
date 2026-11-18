@@ -16,6 +16,7 @@ from . import board
 from .airports import Airports
 from .atc import AUDIO_HEADERS, AtcCatalog
 from .captions import CaptionHub
+from .telephony import spoken
 from .contrib import CONTRIB_TTL, MAX_ITEMS, MISS_TTL, RateGate, clean_aircraft, clean_weather, is_hex
 from .audiohub import AudioHub, Unavailable
 from .config import Config
@@ -26,7 +27,7 @@ from .feeds.sweep import Sweeper
 from .fr24 import Fr24, Fr24Unavailable
 from .metar import BBOX_CAP, ICAO_RE, Metar
 from .store import EMERGENCY_SQUAWKS, Store
-from .util import make_session, norm_hex, num
+from .util import haversine_nm, make_session, norm_hex, num
 from .weather import Weather
 from .winds import LEVELS as WIND_LEVELS
 from .winds import Winds
@@ -149,6 +150,32 @@ def _bbox() -> tuple[float, float, float, float] | None:
     if not (-90 <= s_ <= n <= 90 and -180 <= w <= 180 and -180 <= e <= 180):
         return None
     return s_, w, n, e
+
+
+def caption_prompt(rt, icao: str) -> str:
+    """Whisper context for one airport: its name, runways and the callsigns (as spoken) of the traffic around it.
+    Starts like captions.PROMPT so the prompt-echo filter still recognises an echo."""
+    a = rt.atc.by_icao.get(icao) or {}
+    parts = [f"Air traffic control radio, {a.get('name') or icao} ({icao})."]
+    rwys = []
+    for r in rt.airports.runways(icao)[:4]:
+        rwys += [x for x in (r.get("le_ident"), r.get("he_ident")) if x and not x.startswith("H")]
+    if rwys:
+        parts.append("Runways " + ", ".join(rwys[:8]) + ".")
+    if a.get("lat") is not None and a.get("lon") is not None:
+        rows = rt.store.area(a["lat"], a["lon"], 60)["rows"]
+        names = []
+        for row in sorted(rows, key=lambda r: haversine_nm(a["lat"], a["lon"], r[2], r[3]) if r[2] is not None else 1e9):
+            name = spoken(row[1] or "")
+            if name and name not in names:
+                names.append(name)
+            if len(names) >= 14:
+                break
+        if names:
+            parts.append("Traffic: " + ", ".join(names) + ".")
+    parts.append("Cleared for takeoff, cleared to land, line up and wait, hold short, contact departure, climb and maintain, "
+                 "descend and maintain, heading, flight level, squawk, roger, wilco.")
+    return " ".join(parts)
 
 
 def create_app(config: Config | None = None, session=None, start_feeds: bool = True, clock=time.time) -> Flask:
@@ -374,12 +401,13 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
         """Server-sent events: live English subtitles for one feed (see captions.py)."""
         if not rt.captions.enabled:
             return _json({"error": "captions are not available", "reason": "disabled"}, 503)
-        feed = rt.atc.resolve(request.args.get("icao", ""), request.args.get("feed"))
+        icao = (request.args.get("icao") or "").strip().upper()
+        feed = rt.atc.resolve(icao, request.args.get("feed"))
         if not feed:
             return _json({"error": "unknown airport or feed"}, 404)
 
         def events():
-            for ev in rt.captions.subscribe(feed["url"]):
+            for ev in rt.captions.subscribe(feed["url"], lambda: caption_prompt(rt, icao)):
                 yield ": ping\n\n" if ev.get("type") == "ping" else f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
 
         return Response(stream_with_context(events()), mimetype="text/event-stream",

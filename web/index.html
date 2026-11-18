@@ -72,14 +72,18 @@
               <div class="lvl" id="atc-lvl" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
               <div id="atc-label" class="lcd-label" hidden></div>
             </div>
-            <div id="atc-cc" class="cc" hidden aria-live="polite" aria-label="Sous-titres"></div>
+            <section id="atc-cc" class="cc" hidden aria-live="polite" aria-label="Sous-titres">
+              <header class="cc-head"><span class="cc-title"><span data-icon="captions"></span>Sous-titres</span><span id="atc-cc-meta" class="cc-meta"></span></header>
+              <div id="atc-cc-lines" class="cc-lines"></div>
+              <div id="atc-cc-gloss" class="cc-gloss"></div>
+            </section>
 
             <div id="atc-feeds" class="feeds" role="radiogroup" aria-label="Fréquence"></div>
             <p id="atc-note" class="note" hidden></p>
             <div class="player-bar">
               <button id="atc-retry" class="btn-text" hidden>Réessayer</button>
               <label class="vol"><span data-icon="volume"></span><input id="atc-vol" type="range" min="0" max="1" step="0.05" value="0.8" aria-label="Volume" /></label>
-              <button id="atc-cc-btn" class="cc-btn" type="button" aria-pressed="false" title="Sous-titres en anglais (traduits en direct)" hidden>CC</button>
+              <button id="atc-cc-btn" class="cc-btn" type="button" aria-pressed="false" title="Sous-titres en direct : transcription IA, traduite en anglais si la fréquence est dans une autre langue" hidden><span data-icon="captions"></span>Sous-titres</button>
             </div>
           </div>
 

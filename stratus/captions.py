@@ -18,6 +18,7 @@ Pipeline, per feed (shared by every subscriber, like the audio relay):
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import queue
@@ -35,7 +36,7 @@ log = logging.getLogger("stratus.captions")
 
 RATE = 16000
 FRAME = 480  # 30 ms
-SILENCE_S = 0.7
+SILENCE_S = 0.5  # shorter: a call is captioned sooner after it ends
 MAX_TX_S = 12.0
 MIN_TX_S = 0.5
 PRE_ROLL_S = 0.25
@@ -44,6 +45,7 @@ HISTORY = 6
 BACKLOG = 3
 CPU_THREADS = max(2, min(4, (os.cpu_count() or 2) // 2))
 REMOTE_URL = "https://stratus-asr.elliotmoreau19.workers.dev/"  # Workers AI, Whisper large-v3-turbo (IP-allowlisted)
+REMOTE_DAILY_S = 180 * 60  # Workers AI budget: 180 audio minutes/day ~ 8,400 of the 10,000 free daily neurons
 REMOTE_PAUSE_S = 600  # after 3 failures in a row, use the local model for this long
 WORKERS = 3  # remote calls run in parallel (local ones are serialised by local_lock)
 FALLBACK_MODEL = "base"  # ~3x faster than "small": used when "small" can't keep up with real time on this machine
@@ -149,6 +151,45 @@ class Splitter:
         return out
 
 
+class DailyBudget:
+    """Seconds of audio sent to Workers AI today (UTC), persisted so restarts don't reset it. Past the limit, the
+    free local model takes over until midnight UTC: Stratus never goes beyond Cloudflare's free tier."""
+
+    def __init__(self, path: Path, limit_s: float):
+        self.path, self.limit_s = Path(path), limit_s
+        self.lock = threading.Lock()
+        self.day, self.used = self._today(), 0.0
+        try:
+            d = json.loads(self.path.read_text())
+            if d.get("day") == self.day:
+                self.used = float(d.get("used_s") or 0)
+        except (OSError, ValueError):
+            pass
+
+    @staticmethod
+    def _today() -> str:
+        return time.strftime("%Y-%m-%d", time.gmtime())
+
+    def _roll(self) -> None:
+        if self._today() != self.day:
+            self.day, self.used = self._today(), 0.0
+
+    def left(self) -> float:
+        with self.lock:
+            self._roll()
+            return max(0.0, self.limit_s - self.used)
+
+    def spend(self, seconds: float) -> None:
+        with self.lock:
+            self._roll()
+            self.used += seconds
+            try:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                self.path.write_text(json.dumps({"day": self.day, "used_s": round(self.used, 1)}))
+            except OSError:
+                pass
+
+
 class _Feed:
     def __init__(self, hub: "CaptionHub", url: str):
         self.hub, self.url = hub, url
@@ -159,8 +200,20 @@ class _Feed:
         self.stop = threading.Event()
         self.seq = 0
         self.lock = threading.Lock()
+        self.prompt_fn = None  # () -> str: airport, runways and nearby callsigns (set by the API on subscribe)
+        self._prompt, self._prompt_at = PROMPT, 0.0
         self.langs: Counter = Counter()  # confident language detections: the feed's language once it is clear
         threading.Thread(target=self._run, name=f"captions:{url[-24:]}", daemon=True).start()
+
+    def prompt(self) -> str:
+        """Whisper's context for this feed, refreshed every 30 s (traffic moves)."""
+        if self.prompt_fn and time.monotonic() - self._prompt_at > 30:
+            try:
+                self._prompt = (self.prompt_fn() or PROMPT)[:600]
+            except Exception:
+                log.exception("caption prompt failed")
+            self._prompt_at = time.monotonic()
+        return self._prompt
 
     @property
     def language(self) -> str | None:
@@ -229,6 +282,8 @@ class CaptionHub:
         self.remote_fails = 0
         self.remote_ms: float | None = None
         self.http = requests.Session()
+        self.budget = DailyBudget(Path(cache_dir) / "workers-ai-budget.json", REMOTE_DAILY_S)
+        self.quota_hit = False
         self.enabled = enabled and decode_available() and (bool(remote_url) or local_available())
         self.feeds: dict[str, _Feed] = {}
         self.lock = threading.Lock()
@@ -248,11 +303,13 @@ class CaptionHub:
 
     @property
     def engine(self) -> str:
-        return "workers-ai" if self.remote_url and time.monotonic() >= self.remote_off_until else f"local:{self.model_name}"
+        remote = self.remote_url and time.monotonic() >= self.remote_off_until and self.budget.left() > 0
+        return "workers-ai" if remote else f"local:{self.model_name}"
 
     def status(self) -> dict:
         return {"enabled": self.enabled, "engine": self.engine, "state": self.model_state, "feeds": len(self.feeds),
                 "remote_ms": None if self.remote_ms is None else int(self.remote_ms), "remote_fails": self.remote_fails,
+                "free_tier_audio_min": {"used": round(self.budget.used / 60, 1), "limit": round(REMOTE_DAILY_S / 60)},
                 "local_threads": CPU_THREADS, "cpus": os.cpu_count(),
                 "local_speed_ratio": None if self.ratio is None else round(self.ratio, 2)}
 
@@ -293,14 +350,14 @@ class CaptionHub:
         self._broadcast("ready")
         return True
 
-    def _local(self, pcm, language: str | None) -> tuple[list[str], str | None, float]:
+    def _local(self, pcm, language: str | None, prompt: str = PROMPT) -> tuple[list[str], str | None, float]:
         with self.local_lock:
             if not self._load():
                 raise RuntimeError("no local model")
             t0 = time.monotonic()
             segs, info = self.model.transcribe(
                 pcm, task="translate", language=language, beam_size=1, temperature=0.0, condition_on_previous_text=False,
-                initial_prompt=PROMPT, no_repeat_ngram_size=3, vad_filter=False)
+                initial_prompt=prompt, no_repeat_ngram_size=3, vad_filter=False)
             parts = [s.text for s in segs if not (s.no_speech_prob > 0.6 and s.avg_logprob < -1.0)]
             r = (time.monotonic() - t0) / max(1.0, len(pcm) / RATE)
             self.ratio = r if self.ratio is None else 0.7 * self.ratio + 0.3 * r
@@ -316,9 +373,9 @@ class CaptionHub:
             return parts, info.language, info.language_probability
 
     # ---- remote engine (Workers AI) ----
-    def _remote(self, pcm, language: str | None) -> tuple[list[str], str | None, float]:
+    def _remote(self, pcm, language: str | None, prompt: str = PROMPT) -> tuple[list[str], str | None, float]:
         t0 = time.monotonic()
-        params = {"task": "translate", "prompt": PROMPT, **({"language": language} if language else {})}
+        params = {"task": "translate", "prompt": prompt, **({"language": language} if language else {})}
         resp = self.http.post(self.remote_url, params=params, data=to_wav(pcm), timeout=(5, 30),
                               headers={"Content-Type": "audio/wav", "User-Agent": "Stratus/2.0"})
         resp.raise_for_status()
@@ -332,10 +389,19 @@ class CaptionHub:
         info = d.get("info") or {}
         return parts, info.get("language"), float(info.get("language_probability") or 0)
 
-    def _transcribe(self, pcm, language: str | None) -> tuple[list[str], str | None, float]:
-        if self.remote_url and time.monotonic() >= self.remote_off_until:
+    def _transcribe(self, pcm, language: str | None, prompt: str = PROMPT) -> tuple[list[str], str | None, float]:
+        seconds = len(pcm) / RATE
+        within_budget = self.budget.left() >= seconds
+        if self.remote_url and not within_budget and not self.quota_hit:
+            self.quota_hit = True
+            log.warning("workers-ai daily free budget used: local model until midnight UTC")
+            self._broadcast("quota")
+        if within_budget:
+            self.quota_hit = False
+        if self.remote_url and within_budget and time.monotonic() >= self.remote_off_until:
             try:
-                out = self._remote(pcm, language)
+                out = self._remote(pcm, language, prompt)
+                self.budget.spend(seconds)
                 self.remote_fails = 0
                 return out
             except Exception as exc:
@@ -347,7 +413,7 @@ class CaptionHub:
                     self.remote_fails = 0
                 if not local_available():
                     raise
-        return self._local(pcm, language)
+        return self._local(pcm, language, prompt)
 
     def _work(self) -> None:
         while True:
@@ -359,7 +425,7 @@ class CaptionHub:
                 t0 = time.monotonic()
                 known = feed.language
                 try:
-                    parts, lang, prob = self._transcribe(pcm, known)
+                    parts, lang, prob = self._transcribe(pcm, known, feed.prompt())
                 except Exception:
                     log.exception("transcription failed")
                     continue
@@ -372,13 +438,15 @@ class CaptionHub:
                 feed.publish({"type": "caption", "id": feed.seq, "t": round(start, 1), "dur": round(len(pcm) / RATE, 1),
                               "text": text, "lang": known or feed.language or lang, "ms": int((time.monotonic() - t0) * 1000)})
 
-    def subscribe(self, url: str) -> Iterator[dict]:
+    def subscribe(self, url: str, prompt_fn=None) -> Iterator[dict]:
         """Events for one feed: the model state, the recent captions, then live ones. Ends when the client leaves."""
         q: queue.Queue = queue.Queue(maxsize=50)
         with self.lock:
             feed = self.feeds.get(url)
             if feed is None:
                 feed = self.feeds[url] = _Feed(self, url)
+            if prompt_fn and feed.prompt_fn is None:
+                feed.prompt_fn = prompt_fn
             feed.subs.add(q)
             if not self._workers:
                 for i in range(WORKERS):

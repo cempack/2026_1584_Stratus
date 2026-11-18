@@ -7,9 +7,9 @@
 // from a superseded attempt are ignored, AbortError is never an error, and NotAllowedError is told apart from
 // network failures. 8 kbps feeds take a few seconds to start, so a watchdog gives up after 12 s and moves on to the
 // next feed of the same airport before offering a retry button.
-import { type AtcAirport, type AtcFeed, atcAudioUrl, fetchAtc } from "../api";
+import { type AtcAirport, type AtcFeed, atcAudioUrl, fetchAtc, serverNow } from "../api";
 import { Captions } from "./captions";
-import { MseStream, mseSupported } from "../lib/stream";
+import { CAPTION_LAG_S, LIVE_LAG_S, MseStream, mseSupported } from "../lib/stream";
 import { norm } from "../lib/core";
 import { KIND_ICON, Meter, chipLabels, feedKind, primaryFreq } from "../lib/radio";
 import { icon } from "./icons";
@@ -72,7 +72,11 @@ export class Atc {
   private meter = new Meter();
   private rx = false;
   private litSegments = -1;
-  private cc = new Captions();
+  private cc = new Captions({
+    // what is being heard right now, in server time: the live edge minus how far behind playback is
+    clock: () => { const b = this.mse?.behind; return b == null ? null : serverNow() - b; },
+    onToggle: (on) => this.mse?.setLag(on ? CAPTION_LAG_S : LIVE_LAG_S),
+  });
 
   constructor(private hooks: AtcHooks) {
     this.audio.preload = "none";
@@ -246,7 +250,10 @@ export class Atc {
     this.mse = undefined;
     const url = atcAudioUrl(a.icao, feed.id);
     // MSE starts on the first frames; a plain src makes the browser wait for a large buffer (slow at 8-32 kbps)
-    if (mseSupported()) this.mse = new MseStream(au, url, (err) => (err ? this.fail(my, "network") : this.streamEnded(my)));
+    if (mseSupported()) {
+      this.mse = new MseStream(au, url, (err) => (err ? this.fail(my, "network") : this.streamEnded(my)));
+      this.mse.setLag(this.cc.on ? CAPTION_LAG_S : LIVE_LAG_S); // subtitles on: further behind live, so captions are ready in time
+    }
     else au.src = url;
     this.internalPause = false;
     const p = au.play();

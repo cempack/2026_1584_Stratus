@@ -6,7 +6,9 @@
 // its end so the listener hears live traffic, not the past 15 s.
 
 const MIME = "audio/mpeg";
-const LIVE_LAG_S = 2.5;
+export const LIVE_LAG_S = 2.5;
+/** With subtitles on, play further behind live so each caption is ready when its call is heard (Whisper ~1-3 s). */
+export const CAPTION_LAG_S = 6;
 const MAX_LAG_S = 10; // after a stall, jump back to the live edge instead of drifting further behind
 const KEEP_S = 20; // seconds of played audio kept in the SourceBuffer
 
@@ -24,6 +26,7 @@ export class MseStream {
   private objectUrl: string;
   private stopped = false;
   private synced = false;
+  private lag = LIVE_LAG_S;
 
   /** `onEnd(error)` fires once when the stream ends (null = closed by the server) or fails; never after stop(). */
   constructor(private audio: HTMLAudioElement, private url: string, private onEnd: (error: string | null) => void) {
@@ -63,7 +66,7 @@ export class MseStream {
       const end = b.end(b.length - 1);
       if (!this.synced || end - au.currentTime > MAX_LAG_S) {
         // first data (the burst) or after a long stall: sit just behind the live edge
-        const target = Math.max(b.start(0), end - LIVE_LAG_S);
+        const target = Math.max(b.start(0), end - this.lag);
         if (target > au.currentTime + 0.5 || !this.synced) au.currentTime = target;
         this.synced = true;
       }
@@ -87,6 +90,19 @@ export class MseStream {
         sb.remove(b.start(0), Math.max(b.start(0) + 1, au.currentTime - 2));
       } else this.finish(String(e));
     }
+  }
+
+  /** Change the distance to the live edge (s) while playing: jumps there inside what is already buffered. */
+  setLag(seconds: number) {
+    this.lag = seconds;
+    const b = this.sb?.buffered;
+    if (b?.length) this.audio.currentTime = Math.max(b.start(0), b.end(b.length - 1) - seconds);
+  }
+
+  /** How far behind the live edge playback is right now (s); null before data arrives. */
+  get behind(): number | null {
+    const b = this.sb?.buffered;
+    return b?.length ? Math.max(0, b.end(b.length - 1) - this.audio.currentTime) : null;
   }
 
   private finish(error: string | null) {
