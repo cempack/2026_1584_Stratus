@@ -10,6 +10,7 @@ import type { Detail, Weather } from "../api";
 import { serverNow } from "../api";
 import { type Track, distanceNm, fmtAgo, fmtAltM, fmtInt, fmtSpeedKmh, fmtTrack, fmtVr, renderPos } from "../lib/core";
 import { sparkline } from "../lib/spark";
+import { localClock, localInfo } from "../lib/localtime";
 import { Sheet } from "./sheet";
 import { swap } from "./motion";
 
@@ -241,8 +242,9 @@ export class Panel {
       $("p-route").classList.toggle("partial", !!o && !dst);
       $("p-route").classList.remove("unconfirmed");
       if (o) {
-        text("r-o", o.iata ?? o.icao); text("r-oc", o.city ?? o.name ?? "");
-        text("r-d", dst ? dst.iata ?? dst.icao : "?"); text("r-dc", dst ? dst.city ?? dst.name ?? "" : "Destination inconnue");
+        const at = (x: { lat: number | null; lon: number | null }) => (x.lat != null && x.lon != null ? localClock(x.lat, x.lon) : "");
+        text("r-o", o.iata ?? o.icao); text("r-oc", [o.city ?? o.name, at(o)].filter(Boolean).join(" · "));
+        text("r-d", dst ? dst.iata ?? dst.icao : "?"); text("r-dc", dst ? [dst.city ?? dst.name, at(dst)].filter(Boolean).join(" · ") : "Destination inconnue");
       }
       const src = !o ? ""
         : route?.source === "observed" ? "Décollage observé par Stratus"
@@ -285,6 +287,9 @@ export class Panel {
   /** Once a second: progress, remaining distance, ETA and the freshness line. */
   tick(t: Track | undefined) {
     if (!t) return;
+    const [plat, plon] = renderPos(t, serverNow());
+    const li = localInfo(plat, plon);
+    text("w-local", li ? `${li.night ? "Nuit" : "Jour"} · ${li.time}${li.shift ? ` (${li.shift})` : ""}` : "—");
     const route = this.lastDetail?.route;
     if (route?.origin && route.destination && !$("p-route").hidden) {
       const [lat, lon] = renderPos(t, serverNow());

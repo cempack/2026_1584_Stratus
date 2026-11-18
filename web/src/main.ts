@@ -17,6 +17,7 @@ import { PlaneLayer } from "./map/planes";
 import { Radar } from "./map/radar";
 import { PLACE_KEY } from "./lib/daylight";
 import { aircraftInfo, weatherAt } from "./lib/direct";
+import { loadZones } from "./lib/localtime";
 import { imageryTileSize, installImagery, prefetchImagery } from "./map/imagery";
 import { adaptQuality, initialPixelRatio } from "./map/quality";
 import { restyle } from "./map/restyle";
@@ -688,6 +689,8 @@ document.addEventListener("keydown", (e) => {
 // ---------- go ----------
 function frame(t: number) { layer.frame(t); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
+// local times (radio, flight and airport cards): the zone map loads once the app is up, never on the critical path
+setTimeout(() => void loadZones(), 2500);
 setInterval(() => { if (selected && !document.hidden) panel.tick(store.get(selected)); }, 1000);
 
 planesLoop.start(); areaLoop.start(); detailLoop.start(); weatherLoop.start(); aptLoop.start();

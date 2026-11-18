@@ -13,6 +13,7 @@ import { LIVE_LAG_S, MseStream, mseSupported } from "../lib/stream";
 import { norm } from "../lib/core";
 import { KIND_ICON, Meter, chipLabels, feedKind, primaryFreq } from "../lib/radio";
 import { icon } from "./icons";
+import { localClock } from "../lib/localtime";
 import { closeOthers, registerPopover } from "./popovers";
 import { hide, show, shown } from "./motion";
 
@@ -349,7 +350,7 @@ export class Atc {
     if (!a || !f) return;
     $("atc-code").textContent = a.icao;
     $("atc-title").textContent = a.name;
-    $("atc-sub").textContent = [a.city, a.country].filter(Boolean).join(" · ");
+    this.renderSub();
     const pill = $("atc-pill");
     pill.className = `pill st-${this.st}`;
     $("atc-pill-text").textContent = PILL[this.st];
@@ -413,7 +414,17 @@ export class Atc {
     this.renderTime();
   }
 
+  /** "Tokyo · JP · 08:12 (+8 h)": the local time there, refreshed with the live clock. */
+  private renderSub() {
+    const a = this.current;
+    if (!a) return;
+    const clock = Number.isFinite(a.lat) && Number.isFinite(a.lon) ? localClock(a.lat, a.lon) : "";
+    const t = [a.city, a.country, clock].filter(Boolean).join(" · ");
+    if ($("atc-sub").textContent !== t) $("atc-sub").textContent = t;
+  }
+
   private renderTime() {
+    this.renderSub();
     const t = this.liveSince && (this.st === "live" || this.st === "buffering") ? mmss((Date.now() - this.liveSince) / 1000) : "";
     $("atc-time").textContent = t;
     $("atc-time").hidden = !t;

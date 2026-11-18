@@ -1,5 +1,6 @@
 // Airport card: name, decoded METAR with the flight-category badge, runways and the live arrivals / departures board
 // (derived by the backend from the plane store). Same dock, same look as the flight card.
+import { hhmm, localInfo } from "../lib/localtime";
 import type { AirportBoard, BoardPlane } from "../api";
 import { fmtInt } from "../lib/core";
 import {
@@ -55,6 +56,7 @@ export class AirportPanel {
       text("ap-code", hint.iata ?? this.icao);
       text("ap-name", hint.name ?? this.icao);
       text("ap-sub", [hint.icao ?? this.icao, [hint.city, hint.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "));
+      text("ap-local", "");
       $("ap-radio").hidden = !this.h.hasRadio(this.icao);
       $("ap-cat").hidden = true;
       $("ap-metar-empty").hidden = true; $("ap-metar").hidden = false;
@@ -88,6 +90,9 @@ export class AirportPanel {
     text("ap-code", a.iata ?? a.icao);
     text("ap-name", a.name);
     text("ap-sub", [a.icao, [a.city, a.country].filter(Boolean).join(", "), a.elev_ft != null ? `${fmtInt(a.elev_ft)} ft` : ""].filter(Boolean).join(" · "));
+    const li = localInfo(a.lat, a.lon);
+    text("ap-local", li ? [`${li.time} heure locale${li.shift ? ` (${li.shift})` : ""}`,
+      li.rise ? `lever ${hhmm(li.rise, li.zone)}` : "", li.set ? `coucher ${hhmm(li.set, li.zone)}` : ""].filter(Boolean).join(" · ") : "");
     $("ap-radio").hidden = !this.h.hasRadio(a.icao);
 
     const m = b.metar, cat = categoryOf(m);

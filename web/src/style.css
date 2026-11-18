@@ -363,6 +363,7 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .cc-btn span { width: 16px; height: 16px; }
 .cc-btn:hover { color: var(--ink); border-color: var(--ink-3); }
 .cc-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ap-local { margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .cc { padding: 10px 13px 11px; border-radius: 12px; background: var(--glass-solid); box-shadow: var(--shadow-sm); }
 .cc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 11px; line-height: 14px; color: var(--ink-3); white-space: nowrap; }
 .cc-live { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
