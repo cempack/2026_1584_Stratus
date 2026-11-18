@@ -502,7 +502,7 @@ export class Atc {
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
       const g = cv.getContext("2d")!;
       g.clearRect(0, 0, w, h);
-      const n = id === "mini-viz" ? 18 : BARS;
+      const n = id === "mini-viz" ? Math.min(BARS, Math.max(18, Math.round(w / (7 * dpr)))) : BARS; // denser when the mini stretches
       const bw = w / n, gap = Math.max(1, bw * 0.38), mid = h / 2;
       g.fillStyle = accent;
       const live = this.st === "live";

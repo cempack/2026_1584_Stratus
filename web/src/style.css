@@ -385,16 +385,19 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .cc-gloss dt { color: var(--ink-2); font-weight: 550; white-space: nowrap; }
 .cc-gloss dd { margin: 0; color: var(--ink-3); min-width: 0; }
 @keyframes cc-in { from { opacity: 0; transform: translateY(4px); } }
-/* mini-player: one card; with subtitles it grows a second row for the current call */
+/* mini-player: one card. With a subtitle it becomes a grid: identity left, waveform stretching across the middle,
+   stop at the right edge, and the current call (language, jargon marked, original) on a full-width row below. */
 .mini { position: relative; flex-wrap: wrap; height: auto !important; min-height: 46px; transition: border-radius 260ms var(--ease); }
-.mini:has(.mini-cc.show:not(:empty)) { border-radius: 18px; width: min(420px, calc(100vw - 32px)); }
+.mini:has(.mini-cc.show:not(:empty)) { display: grid; grid-template-columns: auto minmax(60px, 1fr) auto; align-items: center; column-gap: 8px;
+  width: min(440px, calc(100vw - 32px)); padding: 5px 8px 0 6px; border-radius: 18px; }
+.mini:has(.mini-cc.show:not(:empty)) .viz { width: 100%; }
+#mini-freq .dec { font-weight: 400; opacity: 0.6; }
 .mini-cc:not(.show), .mini-cc:empty { display: none; }
-.mini-freq .dec, #mini-freq .dec { font-weight: 400; opacity: 0.6; }
-.mini-cc { order: 9; flex: 1 0 100%; width: 100%; max-width: 360px; margin: 0; padding: 0 14px; max-height: 0; opacity: 0; overflow: hidden;
-  font-size: 13.5px; line-height: 19px; font-weight: 500; color: var(--ink); pointer-events: none;
-  transition: max-height 300ms var(--ease), opacity 220ms var(--ease), padding 300ms var(--ease); }
-.mini-cc.show:not(:empty) { max-height: 96px; opacity: 1; padding: 0 14px 11px; animation: cc-in 260ms var(--ease) both; }
-.mini-cc::before { content: ""; display: block; height: 1px; margin: 0 0 8px; background: var(--line); }
+.mini-cc { grid-column: 1 / -1; display: grid; gap: 3px; margin: 4px 0 0; padding: 9px 8px 11px; border-top: 1px solid var(--line); pointer-events: none;
+  animation: cc-in 260ms var(--ease) both; }
+.mcc-meta { display: flex; align-items: center; gap: 7px; font-size: 10.5px; line-height: 14px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.mcc-text { font-size: 14.5px; line-height: 20px; font-weight: 500; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.mcc-orig { font-size: 12px; line-height: 16px; color: var(--ink-3); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- bottom zone ---------- */
 .b-left, .b-right { position: relative; display: flex; align-items: flex-end; min-width: 0; }

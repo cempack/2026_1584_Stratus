@@ -188,7 +188,23 @@ export class Captions {
       linesEl.replaceChildren(...prev, now, ...orig);
     }
     $("atc-cc-gloss").replaceChildren(...gloss.flatMap((g) => [el("dt", "", g.term), el("dd", "", g.meaning)]));
-    $("mini-cc").textContent = last && this.on ? last.text : "";
-    if (!last || !this.on) $("mini-cc").classList.remove("show");
+    // mini-player: the same call, same marking, with its language; the French explanations stay in the panel
+    const mini = $("mini-cc");
+    if (last && this.on && !msg) {
+      const meta = el("span", "mcc-meta", foreign ? `${foreign} → anglais` : "Anglais");
+      meta.append(el("span", "cc-ai", "IA"));
+      const text = el("span", "mcc-text");
+      let j = 0;
+      for (const g of gloss) {
+        if (g.at > j) text.append(document.createTextNode(last.text.slice(j, g.at)));
+        text.append(el("mark", "cc-j", last.text.slice(g.at, g.end)));
+        j = g.end;
+      }
+      text.append(document.createTextNode(last.text.slice(j)));
+      mini.replaceChildren(meta, text, ...(last.original ? [el("span", "mcc-orig", last.original)] : []));
+    } else {
+      mini.replaceChildren();
+      mini.classList.remove("show");
+    }
   }
 }
