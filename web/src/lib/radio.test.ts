@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Meter, chipLabels, feedKind, parseFreq, primaryFreq, stripIcao } from "./radio";
+import { Meter, chipLabels, feedKind, parseFreq, prettyFacility, primaryFreq, stripIcao } from "./radio";
 
 describe("parseFreq", () => {
   it("reads VHF frequencies out of feed labels exactly as written (no invented digits)", () => {
@@ -40,6 +40,14 @@ describe("primary frequency", () => {
   it("falls back to a frequency written in the label, else nothing", () => {
     expect(primaryFreq("KJFK Tower 119.1", [])).toEqual({ mhz: "119.1", name: "KJFK Tower 119.1" });
     expect(primaryFreq("KJFK Tower", undefined)).toBeNull();
+  });
+});
+
+describe("facility names", () => {
+  it("reads like a person would write them", () => {
+    expect(prettyFacility("ACC_Novosibirsk-Control [Southeast]")).toBe("Novosibirsk Control · Southeast");
+    expect(prettyFacility("JFK Tower (4R/22L, 13L/31R)")).toBe("JFK Tower · 4R/22L, 13L/31R");
+    expect(prettyFacility("Schiphol Tower")).toBe("Schiphol Tower");
   });
 });
 

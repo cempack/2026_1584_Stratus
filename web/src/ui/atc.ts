@@ -11,7 +11,7 @@ import { type AtcAirport, type AtcFeed, atcAudioUrl, fetchAtc, serverNow } from 
 import { Captions } from "./captions";
 import { LIVE_LAG_S, MseStream, mseSupported } from "../lib/stream";
 import { norm } from "../lib/core";
-import { KIND_ICON, Meter, chipLabels, feedKind, primaryFreq } from "../lib/radio";
+import { KIND_ICON, Meter, chipLabels, feedKind, prettyFacility, primaryFreq } from "../lib/radio";
 import { icon } from "./icons";
 import { localClock } from "../lib/localtime";
 import { closeOthers, registerPopover } from "./popovers";
@@ -365,7 +365,10 @@ export class Atc {
 
     // Tuner: channel kind, the headline frequency (real: LiveATC's list or the label, never padded or invented)
     // with its facility, and the other frequencies the feed scans.
-    const fk = feedKind(f.label), prim = primaryFreq(f.label, f.freqs);
+    const prim = primaryFreq(f.label, f.freqs);
+    // a feed covering several positions ("Gnd/Twr/App/Radar") is named after its headline frequency's facility
+    const multi = (f.label.match(/\//g) ?? []).length >= 1;
+    const fk = prim && (multi || feedKind(f.label).kind === "radio") ? feedKind(prim.name) : feedKind(f.label);
     $("atc-kind").textContent = fk.name;
     const ki = $("atc-kind-ico");
     if (ki.dataset.k !== fk.kind) { ki.dataset.k = fk.kind; ki.innerHTML = icon(KIND_ICON[fk.kind]); }
@@ -375,7 +378,7 @@ export class Atc {
       const [mhz, dec] = prim.mhz.split(".");
       fq.replaceChildren(document.createTextNode(mhz), Object.assign(document.createElement("span"), { className: "dec", textContent: dec ? `.${dec}` : "" }));
     }
-    $("atc-fac").textContent = prim ? prim.name.replace(new RegExp(`^${a.icao}\\s+`), "") : feedLabel(a, f);
+    $("atc-fac").textContent = prim ? prettyFacility(prim.name.replace(new RegExp(`^${a.icao}\\s+`), "")) : feedLabel(a, f);
     $("atc-fac").classList.toggle("solo", !prim);
     $("atc-lcd").title = f.label;
     const others = (f.freqs ?? []).filter((x) => x.mhz !== prim?.mhz);
@@ -386,7 +389,7 @@ export class Atc {
     const shownFreqs = open ? others : others.slice(0, 4);
     list.replaceChildren(...shownFreqs.map((x) => {
       const li = document.createElement("li");
-      li.append(Object.assign(document.createElement("b"), { textContent: x.mhz }), Object.assign(document.createElement("span"), { textContent: x.name }));
+      li.append(Object.assign(document.createElement("b"), { textContent: x.mhz }), Object.assign(document.createElement("span"), { textContent: prettyFacility(x.name) }));
       return li;
     }));
     if (others.length > 4) {
@@ -398,6 +401,7 @@ export class Atc {
 
     // channel chips with icons: Tour, Sol, Approche, ATIS...
     const names = chipLabels(a.icao, a.feeds.map((x) => x.label), a.feeds.map((x) => x.freqs));
+    $("atc-feeds").hidden = a.feeds.length < 2; // one channel: nothing to choose
     $("atc-feeds").replaceChildren(...a.feeds.map((x, i) => {
       const b = document.createElement("button");
       b.type = "button"; b.dataset.feed = x.id; b.className = "chip-feed";
@@ -409,8 +413,9 @@ export class Atc {
     }));
 
     // mini-player
-    $("mini-freq").textContent = prim?.mhz ?? fk.name;
-    $("mini-code").textContent = this.st === "live" || this.st === "idle" ? a.icao : `${a.icao} · ${PILL[this.st]}`;
+    const [mm, md] = (prim?.mhz ?? "").split(".");
+    $("mini-freq").replaceChildren(...(prim ? [document.createTextNode(mm), Object.assign(document.createElement("span"), { className: "dec", textContent: md ? `.${md}` : "" })] : [document.createTextNode(fk.name)]));
+    $("mini-code").textContent = this.st === "live" || this.st === "idle" ? `${a.icao} · ${fk.name}` : `${a.icao} · ${PILL[this.st]}`;
     this.renderTime();
   }
 

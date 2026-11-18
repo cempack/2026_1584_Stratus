@@ -205,7 +205,9 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .pop-head h2 { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
 .count { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
 .menu { position: absolute; z-index: 5; top: calc(100% + 8px); right: 0; width: 336px; max-height: calc(100dvh - 2 * var(--gut) - 44px - 8px - 58px); overflow-y: auto; transform-origin: top right; scrollbar-width: thin; }
-.atc { position: absolute; z-index: 5; top: calc(100% + 8px); left: 0; width: 372px; max-width: calc(100vw - 2 * var(--gut)); max-height: calc(100dvh - 2 * var(--gut) - 44px - 8px - 58px); display: flex; flex-direction: column; transform-origin: top left; }
+.atc { position: absolute; z-index: 5; top: calc(100% + 8px); left: 0; width: 380px; max-width: calc(100vw - 2 * var(--gut)); max-height: calc(100dvh - 2 * var(--gut) - 44px - 8px - 60px); display: flex; flex-direction: column; transform-origin: top left; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+/* the whole panel scrolls; the list keeps at least ~4 rows instead of being squeezed under the player */
+.atc > .list { flex: none; min-height: 0; max-height: none; overflow: visible; }
 .field { display: flex; align-items: center; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); transition: border-color 140ms, box-shadow 140ms; flex: none; }
 .field:focus-within { border-color: color-mix(in oklab, var(--accent) 55%, var(--line)); box-shadow: 0 0 0 3px var(--accent-soft); }
 .field-icon { width: 16px; height: 16px; margin-right: 8px; color: var(--ink-3); }
@@ -366,8 +368,8 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .ap-local { margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .cc { padding: 10px 13px 11px; border-radius: 12px; background: var(--glass-solid); box-shadow: var(--shadow-sm); }
 .cc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 11px; line-height: 14px; color: var(--ink-3); white-space: nowrap; }
-.cc-live { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
-.cc-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--bad); animation: breathe 1.8s ease-in-out infinite; }
+.cc-title { display: inline-flex; align-items: center; gap: 5px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.cc-title span { width: 14px; height: 14px; color: var(--accent); }
 .cc-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cc-meta::before { content: "·"; margin-right: 8px; }
 .cc-ai { flex: none; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 5px; font: 650 9.5px/15px var(--font); letter-spacing: 0.06em; color: var(--ink-3); cursor: help; }
@@ -383,11 +385,15 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .cc-gloss dt { color: var(--ink-2); font-weight: 550; white-space: nowrap; }
 .cc-gloss dd { margin: 0; color: var(--ink-3); min-width: 0; }
 @keyframes cc-in { from { opacity: 0; transform: translateY(4px); } }
-.mini { position: relative; }
-.mini-cc { position: absolute; left: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(420px, calc(100vw - 32px)); margin: 0; padding: 9px 13px 9px 14px;
-  border-radius: 13px; border-left: 3px solid var(--accent); font-size: 14px; line-height: 19px; font-weight: 500; color: var(--ink); opacity: 0; transform: translateY(4px);
-  pointer-events: none; transition: opacity 220ms var(--ease), transform 220ms var(--ease); }
-.mini-cc.show:not(:empty) { opacity: 1; transform: none; }
+/* mini-player: one card; with subtitles it grows a second row for the current call */
+.mini { position: relative; flex-wrap: wrap; height: auto !important; min-height: 46px; transition: border-radius 260ms var(--ease); }
+.mini:has(.mini-cc.show:not(:empty)) { border-radius: 18px; }
+.mini-freq .dec, #mini-freq .dec { font-weight: 400; opacity: 0.6; }
+.mini-cc { order: 9; flex: 1 0 100%; width: 100%; max-width: 360px; margin: 0; padding: 0 14px; max-height: 0; opacity: 0; overflow: hidden;
+  font-size: 13.5px; line-height: 19px; font-weight: 500; color: var(--ink); pointer-events: none;
+  transition: max-height 300ms var(--ease), opacity 220ms var(--ease), padding 300ms var(--ease); }
+.mini-cc.show:not(:empty) { max-height: 96px; opacity: 1; padding: 0 14px 11px; }
+.mini-cc::before { content: ""; display: block; height: 1px; margin: 0 0 8px; background: var(--line); }
 
 /* ---------- bottom zone ---------- */
 .b-left, .b-right { position: relative; display: flex; align-items: flex-end; min-width: 0; }
@@ -450,7 +456,8 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .mini-tower { width: 28px; height: 28px; padding: 1px; color: var(--ink-2); transition: color 140ms; }
 .mini[data-rx="1"] .mini-tower { color: var(--accent); }
 .mini-txt { display: grid; line-height: 15px; }
-.mini-txt b { font: 600 15px/17px var(--mono); letter-spacing: 0.01em; color: var(--accent); }
+.mini-txt b { font: 600 15px/17px var(--mono); letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums slashed-zero; }
+.mini[data-state="live"] .mini-tower { color: var(--accent); }
 .mini-txt small { font-size: 11px; line-height: 14px; color: var(--ink-3); letter-spacing: 0.04em; }
 .mini[data-state="error"] .mini-txt b, .mini[data-state="blocked"] .mini-txt b { color: var(--bad); }
 .mini[data-state="connecting"] .mini-txt b, .mini[data-state="buffering"] .mini-txt b { animation: breathe 1s ease-in-out infinite; }

@@ -11,6 +11,14 @@ export function parseFreq(label: string): string | null {
 
 export interface Freq { mhz: string; name: string }
 
+/** LiveATC facility names as people read them: "ACC_Novosibirsk-Control [Southeast]" -> "Novosibirsk Control · Southeast". */
+export function prettyFacility(name: string): string {
+  let s = name.replace(/^(ACC|APP|TWR|GND|GPA|MIL|DEL|CTR|FIS|INFO)_/i, "").replace(/_/g, " ");
+  s = s.replace(/(\p{L})-(\p{L})/gu, "$1 $2"); // Novosibirsk-Control -> Novosibirsk Control (not 4L/22R or 1-6)
+  s = s.replace(/\s*[[(]([^\])]+)[\])]\s*$/, " · $1");
+  return s.replace(/\s+/g, " ").trim() || name;
+}
+
 /**
  * The frequency to headline for a feed: among the ones LiveATC lists, the first whose facility matches the channel
  * kind (a "Tower" feed headlines a tower frequency), else the first listed; else one written in the label; else null.
