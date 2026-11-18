@@ -167,3 +167,34 @@ def test_create_app_starts_feeds_once(cfg, session, monkeypatch):
     app.config["RUNTIME"].start()
     app.config["RUNTIME"].start()
     assert sorted(started) == ["airports", "housekeeping", "opensky", "routes", "sweep"]
+
+
+GOOD_AC = {"registration": "HB-JHA", "type": "A333", "type_name": "Airbus A330 343", "manufacturer": "Airbus",
+           "operator": "Swiss", "operator_icao": "SWR", "owner": "Swiss", "country": "Switzerland"}
+
+
+def test_contribute_fills_gaps_for_tracked_planes_only(client):
+    rt = seed(client)
+    r = client.post("/api/contribute", json={"aircraft": [{"hex": "4b187b", "data": GOOD_AC},
+                                                          {"hex": "abcdef", "data": GOOD_AC}]})  # untracked
+    assert r.get_json()["accepted"]["aircraft"] == 1
+    assert rt.enrich.cached_aircraft("4b187b")["registration"] == "HB-JHA"
+    # never overrides what is cached
+    client.post("/api/contribute", json={"aircraft": [{"hex": "4b187b", "data": {**GOOD_AC, "registration": "F-EVIL"}}]})
+    assert rt.enrich.cached_aircraft("4b187b")["registration"] == "HB-JHA"
+    # lite detail serves it to everyone
+    assert client.get("/api/aircraft/4b187b?lite=1").get_json()["aircraft"]["type"] == "A333"
+
+
+def test_contribute_rejects_bad_data_and_rate_limits(client):
+    rt = seed(client)
+    bad = [{**GOOD_AC, "type": "<script>"}, {**GOOD_AC, "operator": "x" * 200}, {**GOOD_AC, "registration": "no spaces!"}, "nope"]
+    r = client.post("/api/contribute", json={"aircraft": [{"hex": "4b187b", "data": b} for b in bad]})
+    assert r.get_json()["accepted"]["aircraft"] == 0 and rt.enrich.cached_aircraft("4b187b") is None
+    wx = {"lat": 48.5, "lon": 2.5, "data": {"temp_c": -50, "wind_kt": 80, "wind_dir": 270, "cloud_pct": 10, "level": "250hPa"}}
+    assert client.post("/api/contribute", json={"weather": [wx]}).get_json()["accepted"]["weather"] == 1
+    hot = {**wx, "lat": 10, "data": {**wx["data"], "temp_c": 400}}
+    assert client.post("/api/contribute", json={"weather": [hot]}).get_json()["accepted"]["weather"] == 0
+    rt.contrib_gate.limit = 3
+    r = client.post("/api/contribute", json={"weather": [{**wx, "lat": 20 + i} for i in range(10)]}, headers={"CF-Connecting-IP": "1.2.3.4"})
+    assert r.get_json()["rate_limited"] is True and r.get_json()["accepted"]["weather"] == 3

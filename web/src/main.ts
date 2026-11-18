@@ -16,6 +16,7 @@ import { MetarFeed } from "./map/metar";
 import { PlaneLayer } from "./map/planes";
 import { Radar } from "./map/radar";
 import { PLACE_KEY } from "./lib/daylight";
+import { aircraftInfo, weatherAt } from "./lib/direct";
 import { imageryTileSize, installImagery } from "./map/imagery";
 import { adaptQuality, initialPixelRatio } from "./map/quality";
 import { restyle } from "./map/restyle";
@@ -185,7 +186,11 @@ const areaLoop = new Loop(async () => {
 const detailLoop = new Loop(async () => {
   const hex = selected;
   if (!hex) return;
-  const d = await fetchAircraft(hex);
+  // registry from the browser (started on select, cached), the rest from the server without its adsbdb lookup
+  const ac = aircraftInfo(hex);
+  const d = await fetchAircraft(hex, true);
+  if (hex !== selected) return;
+  if (d && !d.aircraft) d.aircraft = await Promise.race([ac, new Promise<null>((ok) => setTimeout(() => ok(null), 1200))]);
   if (hex !== selected) return;
   if (!d) {
     if (!store.has(hex)) { toast("Avion introuvable"); select(null, true); }
@@ -204,7 +209,7 @@ const weatherLoop = new Loop(async () => {
   if (!t) return;
   const [lat, lon] = renderPos(t, serverNow());
   const hex = t.hex;
-  const w = await fetchWeather(lat, lon, t.alt);
+  const w = await weatherAt(lat, lon, t.alt).catch(() => fetchWeather(lat, lon, t.alt)); // direct, server as fallback
   if (hex === selected) panel.setWeather(w);
 }, () => (selected ? 120_000 : null));
 
@@ -368,6 +373,7 @@ function select(hex: string | null, push: boolean) {
   layer.setSelected(hex);
   if (hex) {
     panel.show(store.get(hex), hex);
+    void aircraftInfo(hex); // start the registry lookup now, in parallel with the server detail
     detailLoop.kick(); weatherLoop.kick();
   } else {
     panel.hide();

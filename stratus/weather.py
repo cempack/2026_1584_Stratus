@@ -22,6 +22,14 @@ class Weather:
         self.http = session
         self.cache = TTLCache(5000)
 
+    def contribute(self, lat: float, lon: float, value: dict, ttl: float = TTL) -> bool:
+        """Fill a gap with a browser's Open-Meteo answer (already validated). Never overrides the cache."""
+        key = (round(lat * 4) / 4, round(lon * 4) / 4, value["level"])
+        if self.cache.has(key):
+            return False
+        self.cache.set(key, value, ttl)
+        return True
+
     def at(self, lat: float, lon: float, alt_ft: float | None) -> dict:
         level = pick_level(alt_ft)
         clat, clon = round(lat * 4) / 4, round(lon * 4) / 4

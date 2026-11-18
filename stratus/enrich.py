@@ -207,14 +207,28 @@ class Enricher:
             self.route(cs)
         return len(cands)
 
-    def wait(self, hx: str, cs: str | None, timeout: float) -> bool:
+    def wait(self, hx: str, cs: str | None, timeout: float, aircraft: bool = True) -> bool:
         """Block up to `timeout` s while lookups for this plane (aircraft, photo, route) are in flight, so a freshly
-        opened flight card can get everything in its first response. True when nothing is pending any more."""
-        keys = {("aircraft", hx), ("photo", hx)}
+        opened flight card can get everything in its first response. True when nothing is pending any more.
+        `aircraft=False`: the client looks the registry up itself, do not wait for it."""
+        keys = {("photo", hx)} | ({("aircraft", hx)} if aircraft else set())
         if cs:
             keys |= {("route", cs), ("route-fr24", cs)}
         with self._done:
             return self._done.wait_for(lambda: not (keys & self._pending), timeout)
+
+    def contribute_aircraft(self, hx: str, value: dict, ttl: float) -> bool:
+        """Fill a gap with registry data a browser fetched (already validated). Never overrides the cache."""
+        key = ("aircraft", hx)
+        with self._lock:
+            if key in self._pending or self.cache.has(key):
+                return False
+            self.cache.set(key, value, ttl)
+            return True
+
+    def cached_aircraft(self, hx: str):
+        """Registry data already in the cache; never starts a lookup."""
+        return self.cache.get(("aircraft", hx), None)
 
     def photo(self, hx: str):
         return self._get("photo", hx, PHOTO_URL.format(hex=hx), parse_photo)

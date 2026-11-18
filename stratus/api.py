@@ -16,6 +16,7 @@ from . import board
 from .airports import Airports
 from .atc import AUDIO_HEADERS, AtcCatalog
 from .captions import CaptionHub
+from .contrib import CONTRIB_TTL, MAX_ITEMS, RateGate, clean_aircraft, clean_weather, is_hex
 from .audiohub import AudioHub, Unavailable
 from .config import Config
 from .enrich import Enricher, observed_departure, reconcile_route
@@ -54,6 +55,7 @@ class Runtime:
                          cfg.cache_dir / "fr24-credits.json", clock)
         self.enrich = Enricher(self.http, fr24=self.fr24)
         self.weather = Weather(self.http)
+        self.contrib_gate = RateGate()
         self.metar = Metar(self.http)
         self.winds = Winds(self.http)
         self.sweeper = Sweeper(self.readsb, self.store, interval=cfg.sweep_interval, clock=clock,
@@ -201,14 +203,17 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
         if rt.fr24.enabled and not plane["gnd"] and (plane["est"] or rt.clock() - fix_ts > 60) \
                 and rt.fr24.position_due(hx):
             rt.enrich.pool.submit(rt.fr24_refresh_position, hx, plane["cs"], reg)
+        # lite=1: the browser fetches the registry (adsbdb) itself, so the server neither looks it up nor waits for it
+        lite = request.args.get("lite") == "1"
+        get_aircraft = rt.enrich.cached_aircraft if lite else rt.enrich.aircraft
         route = rt.enrich.route(plane["cs"], selected=True, hx=hx)
-        aircraft, photo = rt.enrich.aircraft(hx), rt.enrich.photo(hx)
-        if route is None or aircraft is None or photo is None:
+        aircraft, photo = get_aircraft(hx), rt.enrich.photo(hx)
+        if route is None or (aircraft is None and not lite) or photo is None:
             # first look at this plane: lookups were just started; a short wait fills the card in one go
             # (cached afterwards, so later polls never wait; a slow upstream costs at most FIRST_WAIT_S once)
-            rt.enrich.wait(hx, plane["cs"], FIRST_WAIT_S)
+            rt.enrich.wait(hx, plane["cs"], FIRST_WAIT_S, aircraft=not lite)
             route = rt.enrich.route(plane["cs"], selected=True, hx=hx)
-            aircraft, photo = rt.enrich.aircraft(hx), rt.enrich.photo(hx)
+            aircraft, photo = get_aircraft(hx), rt.enrich.photo(hx)
         departed = observed_departure(trail, rt.airports.nearest) if rt.airports.list else None
         route = reconcile_route(route, departed, fix_lat, fix_lon, plane["gnd"])
         return _json({"plane": plane, "trail": trail, "aircraft": aircraft, "route": route,
@@ -320,6 +325,32 @@ def create_app(config: Config | None = None, session=None, start_feeds: bool = T
             metar_ = None
         return _json({"t": round(now, 1), "airport": {**apt, "runways": rt.airports.runways(apt["icao"])},
                       "arrivals": arrivals, "departures": departures, "metar": metar_})
+
+    @app.post("/api/contribute")
+    def contribute():
+        """Browser-fetched data shared with everyone (see contrib.py for the trust rules)."""
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return _json({"error": "json body required"}, 400)
+        ip = (request.headers.get("CF-Connecting-IP") or (request.headers.get("X-Forwarded-For") or "").split(",")[0]
+              or request.remote_addr or "?").strip()
+        planes = [x for x in (body.get("aircraft") or [])[:MAX_ITEMS] if isinstance(x, dict)]
+        wx = [x for x in (body.get("weather") or [])[:MAX_ITEMS] if isinstance(x, dict)]
+        allowed = rt.contrib_gate.take(ip, len(planes) + len(wx))
+        took = {"aircraft": 0, "weather": 0}
+        for item in (planes + wx)[:allowed]:
+            if "hex" in item:
+                hx, data = is_hex(item.get("hex")), clean_aircraft(item.get("data"))
+                with rt.store.lock:
+                    tracked = hx is not None and rt.store.get(hx) is not None
+                if tracked and data and rt.enrich.contribute_aircraft(hx, data, CONTRIB_TTL):
+                    took["aircraft"] += 1
+            else:
+                lat, lon, data = num(item.get("lat")), num(item.get("lon")), clean_weather(item.get("data"))
+                if lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180 and data \
+                        and rt.weather.contribute(lat, lon, data):
+                    took["weather"] += 1
+        return _json({"accepted": took, "rate_limited": allowed < len(planes) + len(wx)})
 
     @app.get("/api/weather")
     def weather():

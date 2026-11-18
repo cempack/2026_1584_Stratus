@@ -113,8 +113,9 @@ export async function fetchArea(lat: number, lon: number, r: number): Promise<Pl
 }
 
 /** null when the backend does not know the aircraft (404). */
-export async function fetchAircraft(hex: string): Promise<Detail | null> {
-  const r = await fetch(`/api/aircraft/${hex}`);
+/** `lite`: the browser looks the registry up itself (lib/direct.ts), the server skips it. */
+export async function fetchAircraft(hex: string, lite = false): Promise<Detail | null> {
+  const r = await fetch(`/api/aircraft/${hex}${lite ? "?lite=1" : ""}`);
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`${r.status}`);
   const d = (await r.json()) as Detail;
