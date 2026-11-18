@@ -63,3 +63,11 @@ def test_spoken_callsigns():
     assert spoken("BAW12A") == "Speedbird 12A"
     assert spoken("N412AB") == "N412AB"
     assert spoken("") is None
+
+
+def test_noise_misheard_as_english_is_dropped():
+    from stratus.captions import looks_like_radio
+    assert not looks_like_radio("So that's how you can get your eye in the surface of the ocean")
+    assert looks_like_radio("Good evening")
+    assert looks_like_radio("AZS3771 roger, 126.1, good day")
+    assert looks_like_radio("Continue as instructed by the follow-me car and hold short")

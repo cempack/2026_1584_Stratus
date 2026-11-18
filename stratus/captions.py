@@ -79,6 +79,21 @@ def plausible(text: str) -> bool:
     return True
 
 
+_ATC_WORDS = re.compile(
+    r"\b(runway|cleared?|contact|tower|ground|approach|departure|center|centre|control|heading|level|squawk|roger|wilco|"
+    r"climb|descend|maintain|taxi|hold|wind|frequency|traffic|report|ready|request|affirm|affirmative|negative|say again|"
+    r"standby|line up|land|landing|takeoff|take off|altitude|feet|knots|vector|direct|ils|approved|unable|stand|gate|"
+    r"apron|push|pushback|holding|short|via|information|atis|qnh|altimeter|minimum|speed|turn|left|right|good day|"
+    r"bye|morning|evening|afternoon|hello|thank|thanks)\b", re.I)
+
+
+def looks_like_radio(text: str) -> bool:
+    """Noise misheard as English is long and has no numbers and no radio vocabulary at all. Short lines ("Good
+    evening") and anything with a number or a radio word pass."""
+    words = text.split()
+    return len(words) < 6 or bool(re.search(r"\d", text)) or bool(_ATC_WORDS.search(text))
+
+
 def _echoes(text: str, ctx: dict) -> bool:
     """The prompt (or the airport name) read back on unclear audio."""
     t = text.lower().strip(" .,")
@@ -462,7 +477,7 @@ class CaptionHub:
             if r["original"] is not None and (HALLUCINATION.search(r["original"]) or not r["en"]):
                 continue  # Whisper's training-data ghosts ("subtitles by…"), or nothing worth translating
             text = _STUTTER.sub(r"\1", _ECHO.sub("", _JUNK.sub(" ", r["en"]))).strip(" ,.")
-            if not plausible(text) or HALLUCINATION.search(text) or _echoes(text, feed.prompt()):
+            if not plausible(text) or HALLUCINATION.search(text) or _echoes(text, feed.prompt()) or not looks_like_radio(text):
                 continue
             feed.seq += 1
             feed.publish({"type": "caption", "id": feed.seq, "t": round(start, 1), "dur": round(len(pcm) / RATE, 1),
