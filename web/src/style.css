@@ -375,6 +375,7 @@ body.dock-open .ui { --ui-r: calc(var(--dock) + 2 * var(--gut)); }
 .cc-lines p { margin: 0; }
 .cc-prev { font-size: 12.5px; line-height: 17px; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-now { font-size: 16px; line-height: 23px; font-weight: 500; color: var(--ink); letter-spacing: -0.005em; animation: cc-in 280ms var(--ease) both; }
+.cc-orig { font-size: 12px; line-height: 16px; color: var(--ink-3); font-style: italic; }
 .cc-j { background: none; color: inherit; text-decoration: underline dotted var(--accent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
 .cc-wait { font-size: 13px; line-height: 18px; color: var(--ink-3); }
 .cc-gloss { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 9px 0 0; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; line-height: 16px; }

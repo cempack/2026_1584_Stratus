@@ -10,12 +10,12 @@ import { atcCaptionsUrl, serverNow } from "../api";
 import { CAPTION_LAG_S } from "../lib/stream";
 import { glossFor } from "../lib/glossary";
 
-interface Caption { id: number; t: number; dur: number; text: string; lang: string }
+interface Caption { id: number; t: number; dur: number; text: string; lang: string; original?: string | null }
 type State = "off" | "loading" | "waiting" | "live" | "error" | "quota";
 
 const KEY = "stratus.atc.cc";
 const KEEP = 2; // the current call and the one before: more reads as a wall of text
-const LAG_MAX_S = 16;
+const LAG_MAX_S = 25; // Workers AI takes ~7 s a call (more when translating): up to 25 s keeps lines in sync
 const MINI_SHOW_MS = 12_000;
 const LATE_S = 12; // a caption whose call should have been heard this long ago is shown anyway
 
@@ -126,7 +126,8 @@ export class Captions {
     const due = this.pending.filter((c) => heard == null || c.t <= heard + 0.2 || (heard - c.t) > LATE_S || Date.now() / 1000 - c.t > 30);
     if (!due.length) return;
     this.pending = this.pending.filter((c) => !due.includes(c));
-    this.lines = [...this.lines, ...due].slice(-KEEP);
+    // calls are transcribed in parallel and may finish out of order: keep them in call order
+    this.lines = [...this.lines, ...due].sort((a, b) => a.t - b.t).slice(-KEEP);
     if (this.state !== "quota") this.state = "live";
     this.flashMini();
     this.render();
@@ -179,7 +180,9 @@ export class Captions {
         i = g.end;
       }
       now.append(document.createTextNode(last.text.slice(i)));
-      linesEl.replaceChildren(...prev, now);
+      // translated calls: the original under the translation, small (it is what was actually said)
+      const orig = last.original ? [el("p", "cc-orig", last.original)] : [];
+      linesEl.replaceChildren(...prev, now, ...orig);
     }
     $("atc-cc-gloss").replaceChildren(...gloss.flatMap((g) => [el("dt", "", g.term), el("dd", "", g.meaning)]));
     $("mini-cc").textContent = last && this.on ? last.text : "";

@@ -152,9 +152,9 @@ def _bbox() -> tuple[float, float, float, float] | None:
     return s_, w, n, e
 
 
-def caption_prompt(rt, icao: str) -> str:
-    """Whisper context for one airport: its name, runways and the callsigns (as spoken) of the traffic around it.
-    Starts like captions.PROMPT so the prompt-echo filter still recognises an echo."""
+def caption_prompt(rt, icao: str) -> dict:
+    """Subtitle context for one airport: a Whisper prompt (name, runways, nearby callsigns as spoken, phraseology) and,
+    for the translator, the airport and the callsigns. The prompt starts like captions.PROMPT so echoes are caught."""
     a = rt.atc.by_icao.get(icao) or {}
     parts = [f"Air traffic control radio, {a.get('name') or icao} ({icao})."]
     rwys = []
@@ -162,20 +162,20 @@ def caption_prompt(rt, icao: str) -> str:
         rwys += [x for x in (r.get("le_ident"), r.get("he_ident")) if x and not x.startswith("H")]
     if rwys:
         parts.append("Runways " + ", ".join(rwys[:8]) + ".")
+    names: list[str] = []
     if a.get("lat") is not None and a.get("lon") is not None:
         rows = rt.store.area(a["lat"], a["lon"], 60)["rows"]
-        names = []
         for row in sorted(rows, key=lambda r: haversine_nm(a["lat"], a["lon"], r[2], r[3]) if r[2] is not None else 1e9):
             name = spoken(row[1] or "")
             if name and name not in names:
                 names.append(name)
             if len(names) >= 14:
                 break
-        if names:
-            parts.append("Traffic: " + ", ".join(names) + ".")
+    if names:
+        parts.append("Traffic: " + ", ".join(names) + ".")
     parts.append("Cleared for takeoff, cleared to land, line up and wait, hold short, contact departure, climb and maintain, "
                  "descend and maintain, heading, flight level, squawk, roger, wilco.")
-    return " ".join(parts)
+    return {"prompt": " ".join(parts), "airport": f"{a.get('name') or icao} ({icao})", "callsigns": names}
 
 
 def create_app(config: Config | None = None, session=None, start_feeds: bool = True, clock=time.time) -> Flask:

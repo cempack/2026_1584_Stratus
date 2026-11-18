@@ -45,9 +45,13 @@ HISTORY = 6
 BACKLOG = 3
 CPU_THREADS = max(2, min(4, (os.cpu_count() or 2) // 2))
 REMOTE_URL = "https://stratus-asr.elliotmoreau19.workers.dev/"  # Workers AI, Whisper large-v3-turbo (IP-allowlisted)
-REMOTE_DAILY_S = 180 * 60  # Workers AI budget: 180 audio minutes/day ~ 8,400 of the 10,000 free daily neurons
+REMOTE_DAILY_NEURONS = 8500  # Workers AI free tier is 10,000 neurons/day: stay well under it (Whisper + Gemma)
+ASR_NEURONS_PER_MIN = 46.63
+REMOTE_TIMEOUT_S = 15  # a stuck call is dropped, it must not hold the others back
+HALLUCINATION = re.compile(r"субтитр|продолжение следует|редактор|подписывайтесь|спасибо за просмотр|dimatorzok|"
+                           r"thanks? (you )?for watching|subscribe|amara\.org", re.I)
 REMOTE_PAUSE_S = 600  # after 3 failures in a row, use the local model for this long
-WORKERS = 3  # remote calls run in parallel (local ones are serialised by local_lock)
+WORKERS = 4  # remote calls run in parallel, even within a feed (the client orders lines by call time)
 FALLBACK_MODEL = "base"  # ~3x faster than "small": used when "small" can't keep up with real time on this machine
 SLOW_RATIO = 1.0  # processing time / audio duration above which the model is too slow
 PROMPT = ("Air traffic control radio. Runway, cleared for takeoff, cleared to land, line up and wait, contact departure, "
@@ -73,6 +77,12 @@ def plausible(text: str) -> bool:
     if len(words) >= 4 and sum(w in _PROMPT_WORDS for w in words) / len(words) > 0.85 and "air traffic control radio" in text.lower():
         return False
     return True
+
+
+def _echoes(text: str, ctx: dict) -> bool:
+    """The prompt (or the airport name) read back on unclear audio."""
+    t = text.lower().strip(" .,")
+    return len(t) > 3 and any(t in (ctx.get(k) or "").lower() for k in ("prompt", "airport"))
 
 
 def decode_available() -> bool:
@@ -162,7 +172,7 @@ class DailyBudget:
         try:
             d = json.loads(self.path.read_text())
             if d.get("day") == self.day:
-                self.used = float(d.get("used_s") or 0)
+                self.used = float(d.get("used") or 0)
         except (OSError, ValueError):
             pass
 
@@ -185,7 +195,7 @@ class DailyBudget:
             self.used += seconds
             try:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
-                self.path.write_text(json.dumps({"day": self.day, "used_s": round(self.used, 1)}))
+                self.path.write_text(json.dumps({"day": self.day, "used": round(self.used, 1)}))
             except OSError:
                 pass
 
@@ -201,15 +211,17 @@ class _Feed:
         self.seq = 0
         self.lock = threading.Lock()
         self.prompt_fn = None  # () -> str: airport, runways and nearby callsigns (set by the API on subscribe)
-        self._prompt, self._prompt_at = PROMPT, 0.0
+        self._prompt: dict = {"prompt": PROMPT}
+        self._prompt_at = 0.0
         self.langs: Counter = Counter()  # confident language detections: the feed's language once it is clear
         threading.Thread(target=self._run, name=f"captions:{url[-24:]}", daemon=True).start()
 
-    def prompt(self) -> str:
-        """Whisper's context for this feed, refreshed every 30 s (traffic moves)."""
+    def prompt(self) -> dict:
+        """Context for this feed ({prompt, airport, callsigns}), refreshed every 30 s (traffic moves)."""
         if self.prompt_fn and time.monotonic() - self._prompt_at > 30:
             try:
-                self._prompt = (self.prompt_fn() or PROMPT)[:600]
+                p = self.prompt_fn()
+                self._prompt = p if isinstance(p, dict) else {"prompt": str(p or PROMPT)}
             except Exception:
                 log.exception("caption prompt failed")
             self._prompt_at = time.monotonic()
@@ -282,7 +294,7 @@ class CaptionHub:
         self.remote_fails = 0
         self.remote_ms: float | None = None
         self.http = requests.Session()
-        self.budget = DailyBudget(Path(cache_dir) / "workers-ai-budget.json", REMOTE_DAILY_S)
+        self.budget = DailyBudget(Path(cache_dir) / "workers-ai-neurons.json", REMOTE_DAILY_NEURONS)
         self.quota_hit = False
         self.enabled = enabled and decode_available() and (bool(remote_url) or local_available())
         self.feeds: dict[str, _Feed] = {}
@@ -309,7 +321,7 @@ class CaptionHub:
     def status(self) -> dict:
         return {"enabled": self.enabled, "engine": self.engine, "state": self.model_state, "feeds": len(self.feeds),
                 "remote_ms": None if self.remote_ms is None else int(self.remote_ms), "remote_fails": self.remote_fails,
-                "free_tier_audio_min": {"used": round(self.budget.used / 60, 1), "limit": round(REMOTE_DAILY_S / 60)},
+                "free_tier_neurons": {"used": round(self.budget.used), "limit": REMOTE_DAILY_NEURONS},
                 "local_threads": CPU_THREADS, "cpus": os.cpu_count(),
                 "local_speed_ratio": None if self.ratio is None else round(self.ratio, 2)}
 
@@ -373,25 +385,41 @@ class CaptionHub:
             return parts, info.language, info.language_probability
 
     # ---- remote engine (Workers AI) ----
-    def _remote(self, pcm, language: str | None, prompt: str = PROMPT) -> tuple[list[str], str | None, float]:
+    def _remote(self, pcm, feed) -> dict:
+        """Worker: Whisper transcribes in the call's own language; Gemma translates non-English calls to ICAO English."""
         t0 = time.monotonic()
-        params = {"task": "translate", "prompt": prompt, **({"language": language} if language else {})}
-        resp = self.http.post(self.remote_url, params=params, data=to_wav(pcm), timeout=(5, 30),
+        ctx = feed.prompt()
+        english = feed.language in (None, "en")
+        params = {"seconds": f"{len(pcm) / RATE:.1f}", "ctx": json.dumps({
+            "airport": ctx.get("airport"), "callsigns": (ctx.get("callsigns") or [])[:12],
+            "previous": [c["text"] for c in list(feed.history)[-3:]]}, ensure_ascii=False)}
+        if english:  # an English prompt on a Russian feed gets echoed back: only prime English feeds
+            params["prompt"] = (ctx.get("prompt") or PROMPT)[:600]
+        resp = self.http.post(self.remote_url, params=params, data=to_wav(pcm), timeout=(5, REMOTE_TIMEOUT_S),
                               headers={"Content-Type": "audio/wav", "User-Agent": "Stratus/2.0"})
-        resp.raise_for_status()
         d = resp.json()
+        if d.get("neurons"):
+            self.budget.spend(float(d["neurons"]))
+        if resp.status_code >= 400:
+            raise RuntimeError(d.get("error") or f"HTTP {resp.status_code}")
         ms = (time.monotonic() - t0) * 1000
         self.remote_ms = ms if self.remote_ms is None else 0.7 * self.remote_ms + 0.3 * ms
         segs = d.get("segments") or []
-        parts = [s.get("text", "") for s in segs
-                 if not ((s.get("no_speech_prob") or 0) > 0.6 and (s.get("avg_logprob") or 0) < -1.0)
-                 and (s.get("compression_ratio") or 0) < 2.6] if segs else [d.get("text", "")]
+        good = [x.get("text", "") for x in segs
+                if not ((x.get("no_speech_prob") or 0) > 0.6 and (x.get("avg_logprob") or 0) < -1.0)
+                and (x.get("compression_ratio") or 0) < 2.6] if segs else [d.get("text", "")]
+        original = " ".join(good).strip()
         info = d.get("info") or {}
-        return parts, info.get("language"), float(info.get("language_probability") or 0)
+        lang = info.get("language")
+        if lang and lang != "en":
+            return {"en": (d.get("translation") or "").strip(), "original": original, "lang": lang,
+                    "prob": float(info.get("language_probability") or 0)}
+        return {"en": original, "original": None, "lang": lang or "en", "prob": float(info.get("language_probability") or 0)}
 
-    def _transcribe(self, pcm, language: str | None, prompt: str = PROMPT) -> tuple[list[str], str | None, float]:
+    def _transcribe(self, pcm, feed) -> dict:
         seconds = len(pcm) / RATE
-        within_budget = self.budget.left() >= seconds
+        estimate = seconds / 60 * ASR_NEURONS_PER_MIN + (0 if feed.language in (None, "en") else 8)
+        within_budget = self.budget.left() >= estimate
         if self.remote_url and not within_budget and not self.quota_hit:
             self.quota_hit = True
             log.warning("workers-ai daily free budget used: local model until midnight UTC")
@@ -400,8 +428,7 @@ class CaptionHub:
             self.quota_hit = False
         if self.remote_url and within_budget and time.monotonic() >= self.remote_off_until:
             try:
-                out = self._remote(pcm, language, prompt)
-                self.budget.spend(seconds)
+                out = self._remote(pcm, feed)
                 self.remote_fails = 0
                 return out
             except Exception as exc:
@@ -413,30 +440,34 @@ class CaptionHub:
                     self.remote_fails = 0
                 if not local_available():
                     raise
-        return self._local(pcm, language, prompt)
+        parts, lang, prob = self._local(pcm, feed.language, (feed.prompt().get("prompt") or PROMPT))
+        return {"en": " ".join(parts), "original": None, "lang": lang, "prob": prob}
 
     def _work(self) -> None:
         while True:
             feed = self.work.get()
-            with feed.lock:  # one call at a time per feed: captions stay in order
-                if not feed.pending:
-                    continue
+            try:
                 start, pcm = feed.pending.popleft()
-                t0 = time.monotonic()
-                known = feed.language
-                try:
-                    parts, lang, prob = self._transcribe(pcm, known, feed.prompt())
-                except Exception:
-                    log.exception("transcription failed")
-                    continue
-                if known is None and lang and prob >= 0.7:
-                    feed.langs[lang] += 1
-                text = _STUTTER.sub(r"\1", _ECHO.sub("", _JUNK.sub(" ", " ".join(parts)))).strip(" ,.")
-                if not plausible(text):
-                    continue
-                feed.seq += 1
-                feed.publish({"type": "caption", "id": feed.seq, "t": round(start, 1), "dur": round(len(pcm) / RATE, 1),
-                              "text": text, "lang": known or feed.language or lang, "ms": int((time.monotonic() - t0) * 1000)})
+            except IndexError:
+                continue
+            t0 = time.monotonic()
+            known = feed.language
+            try:
+                r = self._transcribe(pcm, feed)
+            except Exception:
+                log.exception("transcription failed")
+                continue
+            if known is None and r["lang"] and r["prob"] >= 0.7:
+                feed.langs[r["lang"]] += 1
+            if r["original"] is not None and (HALLUCINATION.search(r["original"]) or not r["en"]):
+                continue  # Whisper's training-data ghosts ("subtitles by…"), or nothing worth translating
+            text = _STUTTER.sub(r"\1", _ECHO.sub("", _JUNK.sub(" ", r["en"]))).strip(" ,.")
+            if not plausible(text) or HALLUCINATION.search(text) or _echoes(text, feed.prompt()):
+                continue
+            feed.seq += 1
+            feed.publish({"type": "caption", "id": feed.seq, "t": round(start, 1), "dur": round(len(pcm) / RATE, 1),
+                          "text": text, "original": r["original"], "lang": r["lang"] or known or feed.language,
+                          "ms": int((time.monotonic() - t0) * 1000)})
 
     def subscribe(self, url: str, prompt_fn=None) -> Iterator[dict]:
         """Events for one feed: the model state, the recent captions, then live ones. Ends when the client leaves."""
